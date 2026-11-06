@@ -16,6 +16,65 @@ pub struct EvState {
     pub pick: Option<(Vec<usize>, bool, Option<String>)>,
     pub pick_filter: String,
     pub collapsed: std::collections::HashSet<String>,
+    /// glisser-déposer en attente : (source, cible, mode 0 = avant, 1 = après, 2 = dedans)
+    pub drop: Option<(Vec<usize>, Vec<usize>, u8)>,
+}
+
+/// charge utile du glisser-déposer : chemin de l'événement déplacé
+#[derive(Clone)]
+struct EvDrag(Vec<usize>);
+
+/// zone de dépôt d'une ligne : surligne et mémorise le déplacement au relâchement
+fn drop_zone(app: &mut App, ui: &egui::Ui, rect: egui::Rect, path: &Vec<usize>, nests: bool) {
+    let ctx = ui.ctx();
+    let Some(src) = egui::DragAndDrop::payload::<EvDrag>(ctx) else { return };
+    let Some(pos) = ctx.pointer_interact_pos() else { return };
+    if !rect.contains(pos) || path.starts_with(&src.0) {
+        return;
+    }
+    let f = (pos.y - rect.top()) / rect.height().max(1.0);
+    let mode: u8 = if nests && f > 0.3 && f < 0.7 { 2 } else if f < 0.5 { 0 } else { 1 };
+    let st = egui::Stroke::new(2.5, C::ACCENT());
+    let p = ui.painter();
+    match mode {
+        0 => { p.hline(rect.x_range(), rect.top() - 1.5, st); }
+        1 => { p.hline(rect.x_range(), rect.bottom() + 1.5, st); }
+        _ => { p.rect_stroke(rect, 8.0, st, egui::StrokeKind::Outside); }
+    }
+    if ctx.input(|i| i.pointer.any_released()) {
+        app.ev.drop = Some((src.0.clone(), path.clone(), mode));
+        egui::DragAndDrop::clear_payload(ctx);
+    }
+}
+
+/// applique un déplacement d'événement (glisser-déposer)
+fn apply_drop(app: &mut App, src: Vec<usize>, mut dst: Vec<usize>, mode: u8) {
+    if src.is_empty() || dst.starts_with(&src) {
+        return;
+    }
+    app.snapshot();
+    let Some(sh) = sheet_mut(app) else { return };
+    let (sl, sp) = src.split_last().unwrap();
+    let Some(item) = events_at(sh, sp).and_then(|l| if *sl < l.len() { Some(l.remove(*sl)) } else { None }) else { return };
+    let d = sp.len();
+    if dst.len() > d && dst[..d] == *sp && dst[d] > *sl {
+        dst[d] -= 1;
+    }
+    let (parent, k) = if mode == 2 {
+        let n = events_at(sh, &dst).map(|l| l.len()).unwrap_or(0);
+        (dst.clone(), n)
+    } else {
+        let (l, p) = dst.split_last().unwrap();
+        (p.to_vec(), *l + if mode == 1 { 1 } else { 0 })
+    };
+    if let Some(list) = events_at(sh, &parent) {
+        let k = k.min(list.len());
+        list.insert(k, item);
+        let mut np = parent;
+        np.push(k);
+        app.ev.sel = Some(np);
+    }
+    app.changed();
 }
 
 const SYS_PROVS: [(&str, &str, &str); 5] = [("system", "Système", "⚙"), ("keyboard", "Clavier", "⌨"), ("mouse", "Souris", "🖱"), ("audio", "Audio", "♪"), ("storage", "Sauvegarde", "💾")];
@@ -126,12 +185,12 @@ pub fn ace_text(app: &App, it: &Json, is_cond: bool) -> String {
 
 fn owner(app: &App, o: &str) -> (String, egui::Color32) {
     match o {
-        "system" => ("Système".into(), C::SYS),
-        "keyboard" => ("Clavier".into(), C::BLUE_T),
-        "mouse" => ("Souris".into(), C::BLUE_T),
-        "audio" => ("Audio".into(), C::GREEN_T),
-        "storage" => ("Sauvegarde".into(), C::PURPLE),
-        id => (app.obj(id).map(|o| format!("{} {}", crate::tree::glyph(o.s("kind")), o.s("name"))).unwrap_or_else(|| "(supprimé)".into()), C::CODE),
+        "system" => ("Système".into(), C::SYS()),
+        "keyboard" => ("Clavier".into(), C::BLUE_T()),
+        "mouse" => ("Souris".into(), C::BLUE_T()),
+        "audio" => ("Audio".into(), C::GREEN_T()),
+        "storage" => ("Sauvegarde".into(), C::PURPLE()),
+        id => (app.obj(id).map(|o| format!("{} {}", crate::tree::glyph(o.s("kind")), o.s("name"))).unwrap_or_else(|| "(supprimé)".into()), C::CODE()),
     }
 }
 
@@ -237,7 +296,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
         }
     }
     // ---- barre d'outils
-    egui::Frame::new().fill(C::BG1).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
+    egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
         ui.horizontal_wrapped(|ui| {
             let sel = app.ev.sel.clone();
             let mut add = |app: &mut App, e: Json, sub: bool| {
@@ -341,11 +400,17 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         ui.add_space(6.0);
         if events.is_empty() {
-            ui.label(RichText::new("Feuille vide : ajoutez un événement (« + Événement »), puis ses conditions (à gauche) et ses actions (à droite).").color(C::MUTED));
+            ui.label(RichText::new("Feuille vide : ajoutez un événement (« + Événement »), puis ses conditions (à gauche) et ses actions (à droite).").color(C::MUTED()));
         }
         draw_list(app, ui, &events, &mut vec![], 0);
         ui.add_space(40.0);
     });
+    if let Some((a, b, m)) = app.ev.drop.take() {
+        apply_drop(app, a, b, m);
+    }
+    if !ui.ctx().input(|i| i.pointer.any_down()) && egui::DragAndDrop::has_payload_of_type::<EvDrag>(ui.ctx()) {
+        egui::DragAndDrop::clear_payload(ui.ctx());
+    }
     edit_window(app, ui.ctx());
     pick_window(app, ui.ctx());
 }
@@ -395,7 +460,7 @@ fn draw_list(app: &mut App, ui: &mut egui::Ui, list: &[Json], path: &mut Vec<usi
 }
 
 fn row_frame(sel: bool, off: bool, fill: egui::Color32) -> egui::Frame {
-    egui::Frame::new().fill(if off { C::BG1 } else { fill }).corner_radius(8.0).inner_margin(egui::Margin::symmetric(8, 6)).stroke(egui::Stroke::new(if sel { 1.5 } else { 1.0 }, if sel { C::ACCENT } else { C::LINE }))
+    egui::Frame::new().fill(if off { C::BG1() } else { fill }).corner_radius(8.0).inner_margin(egui::Margin::symmetric(8, 6)).stroke(egui::Stroke::new(if sel { 1.5 } else { 1.0 }, if sel { C::ACCENT() } else { C::LINE() }))
 }
 
 fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, depth: usize) {
@@ -403,12 +468,18 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
     let off = pf_runtime::rt::jtruthy(e.get("off"));
     let indent = depth as f32 * 22.0;
     let id = e.s("id").to_string();
+    let nests = !matches!(e.s("kind"), "comment" | "lvar" | "include");
     ui.horizontal(|ui| {
         ui.add_space(indent);
+        ui.dnd_drag_source(egui::Id::new(("evdrag", &id)), EvDrag(path.clone()), |ui| {
+            ui.label(RichText::new("⠿").color(C::DIM()));
+        })
+        .response
+        .on_hover_text("Glisser pour déplacer l’événement (au milieu d’un événement ou d’un groupe : le ranger dedans)");
         ui.vertical(|ui| {
             match e.s("kind") {
                 "comment" => {
-                    let r = row_frame(sel, off, egui::Color32::from_rgb(0x2a, 0x26, 0x1a)).show(ui, |ui| {
+                    let r = row_frame(sel, off, if theme::C::LIGHT.load(std::sync::atomic::Ordering::Relaxed) { egui::Color32::from_rgb(0xfb, 0xf3, 0xdc) } else { egui::Color32::from_rgb(0x2a, 0x26, 0x1a) }).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         let mut t = e.s("text").to_string();
                         if sel {
@@ -416,16 +487,17 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                                 set_field(app, path, "text", Json::String(t));
                             }
                         } else {
-                            ui.label(RichText::new(format!("💬 {}", t)).color(egui::Color32::from_rgb(0xff, 0xd8, 0x9a)).italics());
+                            ui.label(RichText::new(format!("💬 {}", t)).color(if theme::C::LIGHT.load(std::sync::atomic::Ordering::Relaxed) { egui::Color32::from_rgb(0x7a, 0x55, 0x10) } else { egui::Color32::from_rgb(0xff, 0xd8, 0x9a) }).italics());
                         }
                     });
                     if r.response.interact(egui::Sense::click()).clicked() {
                         app.ev.sel = Some(path.clone());
                     }
+                    drop_zone(app, ui, r.response.rect, path, nests);
                 }
                 "group" => {
                     let collapsed = app.ev.collapsed.contains(&id);
-                    let r = row_frame(sel, off, egui::Color32::from_rgb(0x1f, 0x22, 0x33)).show(ui, |ui| {
+                    let r = row_frame(sel, off, if theme::C::LIGHT.load(std::sync::atomic::Ordering::Relaxed) { egui::Color32::from_rgb(0xe9, 0xe8, 0xf7) } else { egui::Color32::from_rgb(0x1f, 0x22, 0x33) }).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.horizontal(|ui| {
                             if ui.small_button(if collapsed { "▸" } else { "▾" }).clicked() {
@@ -449,14 +521,15 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                                     set_field(app, path, "desc", Json::String(d));
                                 }
                             } else {
-                                ui.label(RichText::new(format!("📁 {}", e.s("name"))).strong().color(C::PURPLE));
-                                ui.label(RichText::new(e.s("desc")).color(C::DIM));
+                                ui.label(RichText::new(format!("📁 {}", e.s("name"))).strong().color(C::PURPLE()));
+                                ui.label(RichText::new(e.s("desc")).color(C::DIM()));
                             }
                         });
                     });
                     if r.response.interact(egui::Sense::click()).clicked() {
                         app.ev.sel = Some(path.clone());
                     }
+                    drop_zone(app, ui, r.response.rect, path, nests);
                     if !collapsed {
                         let subs = e.arr("subs").to_vec();
                         let mut p = path.clone();
@@ -464,10 +537,10 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                     }
                 }
                 "lvar" => {
-                    let r = row_frame(sel, off, C::BG2).show(ui, |ui| {
+                    let r = row_frame(sel, off, C::BG2()).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new("Variable locale").color(C::MUTED));
+                            ui.label(RichText::new("Variable locale").color(C::MUTED()));
                             let mut n = e.s("name").to_string();
                             if ui.add(egui::TextEdit::singleline(&mut n).desired_width(100.0)).changed() {
                                 set_field(app, path, "name", Json::String(n));
@@ -491,12 +564,13 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                     if r.response.interact(egui::Sense::click()).clicked() {
                         app.ev.sel = Some(path.clone());
                     }
+                    drop_zone(app, ui, r.response.rect, path, nests);
                 }
                 "include" => {
-                    let r = row_frame(sel, off, C::BG2).show(ui, |ui| {
+                    let r = row_frame(sel, off, C::BG2()).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new("Inclure la feuille").color(C::MUTED));
+                            ui.label(RichText::new("Inclure la feuille").color(C::MUTED()));
                             let cur = e.s("sheet").to_string();
                             let nm = app.proj.arr("sheets").iter().find(|s| s.s("id") == cur).map(|s| s.s("name").to_string()).unwrap_or_else(|| "?".into());
                             egui::ComboBox::from_id_salt(("inc", &id)).selected_text(nm).show_ui(ui, |ui| {
@@ -511,22 +585,23 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                     if r.response.interact(egui::Sense::click()).clicked() {
                         app.ev.sel = Some(path.clone());
                     }
+                    drop_zone(app, ui, r.response.rect, path, nests);
                 }
                 kind => {
                     let is_fn = kind == "function";
-                    let r = row_frame(sel, off, C::BG2).show(ui, |ui| {
+                    let r = row_frame(sel, off, C::BG2()).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         if app.bps.contains(&id) {
-                            ui.label(RichText::new("● point d’arrêt").size(11.0).color(C::DANGER));
+                            ui.label(RichText::new("● point d’arrêt").size(11.0).color(C::DANGER()));
                         }
                         if is_fn {
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new("ƒ Fonction").strong().color(C::ACCENT));
+                                ui.label(RichText::new("ƒ Fonction").strong().color(C::ACCENT()));
                                 let mut n = e.s("name").to_string();
                                 if ui.add(egui::TextEdit::singleline(&mut n).desired_width(140.0)).changed() {
                                     set_field(app, path, "name", Json::String(n));
                                 }
-                                ui.label(RichText::new("paramètres :").color(C::MUTED));
+                                ui.label(RichText::new("paramètres :").color(C::MUTED()));
                                 let mut ps = e.arr("params").iter().map(pf_runtime::rt::jstr).collect::<Vec<_>>().join(", ");
                                 if ui.add(egui::TextEdit::singleline(&mut ps).desired_width(160.0)).changed() {
                                     let v: Vec<String> = ps.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect();
@@ -541,15 +616,15 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                                 let or = pf_runtime::rt::jtruthy(e.get("or"));
                                 for (ci, c) in conds.iter().enumerate() {
                                     if ci > 0 && or {
-                                        cols[0].label(RichText::new("OU").size(10.0).color(C::ACCENT));
+                                        cols[0].label(RichText::new("OU").size(10.0).color(C::ACCENT()));
                                     }
                                     ace_row(app, &mut cols[0], c, path, true, ci);
                                 }
                                 if conds.is_empty() {
-                                    cols[0].label(RichText::new("À chaque image (aucune condition)").color(C::DIM).italics());
+                                    cols[0].label(RichText::new("À chaque image (aucune condition)").color(C::DIM()).italics());
                                 }
                                 cols[0].horizontal(|ui| {
-                                    if ui.add(egui::Button::new(RichText::new("+ condition").size(12.0).color(C::COND)).frame(false)).clicked() {
+                                    if ui.add(egui::Button::new(RichText::new("+ condition").size(12.0).color(C::COND())).frame(false)).clicked() {
                                         app.ev.sel = Some(path.clone());
                                         app.ev.pick = Some((path.clone(), true, None));
                                         app.ev.pick_filter.clear();
@@ -562,14 +637,14 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                                     }
                                 });
                             } else {
-                                cols[0].label(RichText::new("Appelée par l’action « Appeler une fonction » ou call(\"nom\", …)").size(11.0).color(C::DIM));
+                                cols[0].label(RichText::new("Appelée par l’action « Appeler une fonction » ou call(\"nom\", …)").size(11.0).color(C::DIM()));
                             }
                             // actions
                             let acts = e.arr("acts").to_vec();
                             for (ai, a) in acts.iter().enumerate() {
                                 ace_row(app, &mut cols[1], a, path, false, ai);
                             }
-                            if cols[1].add(egui::Button::new(RichText::new("+ action").size(12.0).color(C::ACT)).frame(false)).clicked() {
+                            if cols[1].add(egui::Button::new(RichText::new("+ action").size(12.0).color(C::ACT())).frame(false)).clicked() {
                                 app.ev.sel = Some(path.clone());
                                 app.ev.pick = Some((path.clone(), false, None));
                                 app.ev.pick_filter.clear();
@@ -579,6 +654,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                     if r.response.interact(egui::Sense::click()).clicked() {
                         app.ev.sel = Some(path.clone());
                     }
+                    drop_zone(app, ui, r.response.rect, path, nests);
                     let subs = e.arr("subs").to_vec();
                     if !subs.is_empty() {
                         let mut p = path.clone();
@@ -596,14 +672,14 @@ fn ace_row(app: &mut App, ui: &mut egui::Ui, it: &Json, path: &Vec<usize>, cond:
     let txt = ace_text(app, it, cond);
     let not = cond && pf_runtime::rt::jtruthy(it.get("not"));
     let off = pf_runtime::rt::jtruthy(it.get("off"));
-    let r = egui::Frame::new().fill(C::BG3).corner_radius(6.0).inner_margin(egui::Margin::symmetric(6, 3)).show(ui, |ui| {
+    let r = egui::Frame::new().fill(C::BG3()).corner_radius(6.0).inner_margin(egui::Margin::symmetric(6, 3)).show(ui, |ui| {
         ui.set_width(ui.available_width());
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new(on).size(12.0).color(col));
             if not {
-                ui.label(RichText::new("NON").size(11.0).strong().color(C::DANGER));
+                ui.label(RichText::new("NON").size(11.0).strong().color(C::DANGER()));
             }
-            let mut rt = RichText::new(txt).color(if off { C::DIM } else { C::TEXT });
+            let mut rt = RichText::new(txt).color(if off { C::DIM() } else { C::TEXT() });
             if off {
                 rt = rt.strikethrough();
             }
@@ -689,7 +765,7 @@ fn param_ui(app: &App, ui: &mut egui::Ui, pd: &Json, v: &mut Json, owner_id: &st
             }
             if t == "expr" {
                 if let Err(e) = pf_core::expr::parse(&s) {
-                    ui.label(RichText::new(format!("⚠ {}", e)).size(11.0).color(C::DANGER));
+                    ui.label(RichText::new(format!("⚠ {}", e)).size(11.0).color(C::DANGER()));
                 }
             }
         }
@@ -844,14 +920,14 @@ fn edit_window(app: &mut App, ctx: &egui::Context) {
     egui::Window::new(if cond { "Condition" } else { "Action" }).id(egui::Id::new("aceedit")).open(&mut open).collapsible(false).resizable(false).default_width(420.0).max_size(theme::fit(ctx, 420.0, 600.0).1).vscroll(true).constrain(true).show(ctx, |ui| {
         let (on, col) = owner(app, it.s("o"));
         ui.label(RichText::new(on).color(col));
-        ui.label(RichText::new(d.s("n")).strong().size(15.0).color(C::TEXT));
+        ui.label(RichText::new(d.s("n")).strong().size(15.0).color(C::TEXT()));
         if !d.s("hint").is_empty() {
-            ui.label(RichText::new(d.s("hint")).size(11.0).color(C::DIM));
+            ui.label(RichText::new(d.s("hint")).size(11.0).color(C::DIM()));
         }
         ui.separator();
         egui::Grid::new("aceps").num_columns(2).spacing([10.0, 8.0]).show(ui, |ui| {
             for (n, pd) in d.arr("p").iter().enumerate() {
-                ui.label(RichText::new(pd.s("n")).color(C::MUTED));
+                ui.label(RichText::new(pd.s("n")).color(C::MUTED()));
                 if e2.get("p").map(|p| !p.is_array()).unwrap_or(true) {
                     e2["p"] = json!([]);
                 }
@@ -863,7 +939,7 @@ fn edit_window(app: &mut App, ctx: &egui::Context) {
                 ui.end_row();
             }
             if cond {
-                ui.label(RichText::new("Inverser (NON)").color(C::MUTED));
+                ui.label(RichText::new("Inverser (NON)").color(C::MUTED()));
                 let mut b = pf_runtime::rt::jtruthy(e2.get("not"));
                 if ui.checkbox(&mut b, "").changed() {
                     e2["not"] = Json::Bool(b);
@@ -916,7 +992,7 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
     egui::Window::new(if cond { "Ajouter une condition" } else { "Ajouter une action" }).id(egui::Id::new("acepick")).open(&mut open).collapsible(false).default_width(520.0).default_height(theme::fit(ctx, 520.0, 520.0).0.y).max_size(theme::fit(ctx, 520.0, 520.0).1).constrain(true).show(ctx, |ui| {
         match &prov {
             None => {
-                ui.label(RichText::new("1. Choisissez l’objet concerné").color(C::MUTED));
+                ui.label(RichText::new("1. Choisissez l’objet concerné").color(C::MUTED()));
                 ui.add_space(4.0);
                 ui.horizontal_wrapped(|ui| {
                     for (k, n, g) in SYS_PROVS {
@@ -985,9 +1061,9 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
                         }
                     }
                     for (cat, items) in cats {
-                        ui.label(RichText::new(cat.to_uppercase()).size(11.0).strong().color(C::DIM));
+                        ui.label(RichText::new(cat.to_uppercase()).size(11.0).strong().color(C::DIM()));
                         for (k, n, h) in items {
-                            let mut r = ui.add(egui::Button::new(RichText::new(&n).color(C::TEXT)).frame(false));
+                            let mut r = ui.add(egui::Button::new(RichText::new(&n).color(C::TEXT())).frame(false));
                             if !h.is_empty() {
                                 r = r.on_hover_text(h);
                             }

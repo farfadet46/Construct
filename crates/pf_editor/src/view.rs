@@ -172,9 +172,9 @@ fn render(app: &mut App, pw: u32, ph: u32, ppp: f32) {
 pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     let _ = now;
     // ---- barre d'outils
-    egui::Frame::new().fill(C::BG1).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
+    egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
         ui.horizontal_wrapped(|ui| {
-            ui.label(egui::RichText::new(format!("{} %", (app.view.zoom * 100.0).round())).color(C::MUTED).monospace());
+            ui.label(egui::RichText::new(format!("{} %", (app.view.zoom * 100.0).round())).color(C::MUTED()).monospace());
             if ui.add(theme::btn_small("−")).clicked() {
                 zoom_at(app, app.view.rect.center(), 1.0 / 1.25);
             }
@@ -200,7 +200,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             ui.separator();
             // calques
             if let Some(l) = app.layout().cloned() {
-                ui.label(egui::RichText::new("Calque :").color(C::MUTED));
+                ui.label(egui::RichText::new("Calque :").color(C::MUTED()));
                 let layers = l.arr("layers").to_vec();
                 let cur = app.view.active_layer.clone().filter(|a| layers.iter().any(|y| y.s("id") == a));
                 let cur_name = cur.as_ref().and_then(|c| layers.iter().find(|y| y.s("id") == c)).map(|y| y.s("name").to_string()).unwrap_or_else(|| "(automatique)".into());
@@ -219,7 +219,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                     let vis = !app.view.hidden.contains(&id);
                     let lock = app.view.locked.contains(&id);
                     let t = format!("{}{} {}", if vis { "👁" } else { "◌" }, if lock { "🔒" } else { "" }, y.s("name"));
-                    let r = ui.add(egui::Button::new(egui::RichText::new(t).size(12.0).color(if vis { C::TEXT2 } else { C::DIM })).fill(C::BG2)).on_hover_text("Clic : afficher / masquer · Clic droit : verrouiller");
+                    let r = ui.add(egui::Button::new(egui::RichText::new(t).size(12.0).color(if vis { C::TEXT2() } else { C::DIM() })).fill(C::BG2())).on_hover_text("Clic : afficher / masquer · Clic droit : verrouiller");
                     if r.clicked() {
                         if vis {
                             app.view.hidden.insert(id.clone());
@@ -449,18 +449,18 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
         let r = egui::Rect::from_min_max(app.view.to_screen(0.0, 0.0), app.view.to_screen(gw, gh));
         painter.rect_stroke(r, 0.0, egui::Stroke::new(1.0, egui::Color32::from_rgba_unmultiplied(255, 216, 77, 120)), egui::StrokeKind::Middle);
         let lr = egui::Rect::from_min_max(app.view.to_screen(0.0, 0.0), app.view.to_screen(l.f("w", 0.0), l.f("h", 0.0)));
-        painter.rect_stroke(lr, 0.0, egui::Stroke::new(1.0, C::LINE3), egui::StrokeKind::Outside);
+        painter.rect_stroke(lr, 0.0, egui::Stroke::new(1.0, C::LINE3()), egui::StrokeKind::Outside);
     }
     // sélection
     if let Sel::Inst(id) = &app.sel {
         if let Some(i) = app.find_inst(id) {
             if let Some(b) = inst_box(app, i) {
                 let r = egui::Rect::from_min_max(app.view.to_screen(b.l.min(b.r), b.t), app.view.to_screen(b.l.max(b.r), b.b));
-                painter.rect_stroke(r, 0.0, egui::Stroke::new(1.5, C::ACCENT), egui::StrokeKind::Outside);
+                painter.rect_stroke(r, 0.0, egui::Stroke::new(1.5, C::ACCENT()), egui::StrokeKind::Outside);
                 let hp = app.view.to_screen(b.l.max(b.r), b.b);
-                painter.rect_filled(egui::Rect::from_center_size(hp, egui::vec2(9.0, 9.0)), 2.0, C::ACCENT);
+                painter.rect_filled(egui::Rect::from_center_size(hp, egui::vec2(9.0, 9.0)), 2.0, C::ACCENT());
                 let name = app.obj_name(i.s("obj"));
-                painter.text(r.left_top() - egui::vec2(0.0, 3.0), egui::Align2::LEFT_BOTTOM, format!("{}  ({:.0}, {:.0})  {:.0}×{:.0}", name, i.f("x", 0.0), i.f("y", 0.0), i.f("w", 0.0), i.f("h", 0.0)), egui::FontId::proportional(12.0), C::ACCENT_H);
+                painter.text(r.left_top() - egui::vec2(0.0, 3.0), egui::Align2::LEFT_BOTTOM, format!("{}  ({:.0}, {:.0})  {:.0}×{:.0}", name, i.f("x", 0.0), i.f("y", 0.0), i.f("w", 0.0), i.f("h", 0.0)), egui::FontId::proportional(12.0), C::ACCENT_H());
             }
         }
     }
@@ -477,10 +477,10 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             }
         }
         let info = app.layout().map(|l| format!("{} × {} px · {} instance(s)   ", l.f("w", 0.0), l.f("h", 0.0), l.arr("instances").len())).unwrap_or_default();
-        painter.text(rect.right_bottom() - egui::vec2(8.0, 6.0), egui::Align2::RIGHT_BOTTOM, format!("{}{:.0}, {:.0}", info, wx, wy), egui::FontId::monospace(11.0), C::DIM);
+        painter.text(rect.right_bottom() - egui::vec2(8.0, 6.0), egui::Align2::RIGHT_BOTTOM, format!("{}{:.0}, {:.0}", info, wx, wy), egui::FontId::monospace(11.0), C::DIM());
     }
     if app.layout().map(|l| l.arr("instances").is_empty()).unwrap_or(false) {
-        painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Glissez un objet depuis le panneau de gauche pour le placer dans le niveau", egui::FontId::proportional(14.0), C::MUTED);
+        painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Glissez un objet depuis le panneau de gauche pour le placer dans le niveau", egui::FontId::proportional(14.0), C::MUTED());
     }
 }
 

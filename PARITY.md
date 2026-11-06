@@ -57,9 +57,9 @@ d'objets identiques** à la version HTML.
 | Éditeur de cinématiques : 13 types d'étapes, étapes simultanées, ordre, options (bandes, blocage, gel, Échap), test direct | ✅ |
 | Générateur d'effets sonores (façon sfxr) : préréglages, variation, 13 réglages, forme d'onde, écoute, modification ultérieure | ✅ |
 | Rechercher / remplacer dans tout le projet (Ctrl+F), avec accès direct au résultat | ✅ |
-| Historique visuel des modifications | ⬜ (Annuler / Rétablir disponibles) |
+| Historique visuel des modifications (Édition → Historique, Ctrl+H) : description de chaque étape, heure, retour à n'importe quel état, rétablissement | ✅ |
 | Export page web (.html) et jeu web installable (PWA .zip : manifeste, icônes, hors connexion), avec le moteur JavaScript d'origine | ✅ |
 | Aide intégrée | ✅ |
-| Thème clair | ⬜ |
+| Thème clair / sombre (bouton ☀ / ☾ en haut à droite, choix mémorisé) | ✅ |
 | Copier / coller des événements (Ctrl+C / Ctrl+V, entre feuilles) | ✅ |
-| Glisser-déposer des événements | ⬜ (flèches ↑ ↓) |
+| Glisser-déposer des événements (poignée ⠿ : avant, après, ou dedans un événement / groupe) | ✅ |

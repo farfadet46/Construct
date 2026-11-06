@@ -82,7 +82,7 @@ fn is_color_key(k: &str, v: &str) -> bool {
 /// éditeur générique d'un champ JSON ; renvoie true si modifié
 fn field(ui: &mut egui::Ui, k: &str, v: &mut Json, label: &str) -> bool {
     let mut ch = false;
-    ui.label(egui::RichText::new(label).color(C::MUTED));
+    ui.label(egui::RichText::new(label).color(C::MUTED()));
     match v {
         Json::Bool(b) => {
             ch |= ui.checkbox(b, "").changed();
@@ -193,7 +193,7 @@ fn beh_param(ui: &mut egui::Ui, app: &App, def: &Json, v: &mut Json) -> bool {
 }
 
 pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
-    egui::SidePanel::right("props").default_width(300.0).min_width(240.0).frame(egui::Frame::new().fill(C::BG1).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0, C::LINE))).show(ctx, |ui| {
+    egui::SidePanel::right("props").default_width(300.0).min_width(240.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0, C::LINE()))).show(ctx, |ui| {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             match app.sel.clone() {
                 Sel::Inst(id) => inst_props(app, ui, &id),
@@ -210,10 +210,10 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
 
 fn header(ui: &mut egui::Ui, icon: &str, title: &str, sub: &str) {
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(icon).size(18.0).color(C::ACCENT));
+        ui.label(egui::RichText::new(icon).size(18.0).color(C::ACCENT()));
         ui.vertical(|ui| {
-            ui.label(egui::RichText::new(title).strong().size(15.0).color(C::TEXT));
-            ui.label(egui::RichText::new(sub).size(11.0).color(C::DIM));
+            ui.label(egui::RichText::new(title).strong().size(15.0).color(C::TEXT()));
+            ui.label(egui::RichText::new(sub).size(11.0).color(C::DIM()));
         });
     });
     ui.separator();
@@ -240,7 +240,7 @@ fn inst_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
     }
     egui::Grid::new("ip").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
         for (k, lab) in [("x", "X"), ("y", "Y"), ("w", "Largeur"), ("h", "Hauteur"), ("angle", "Angle (°)")] {
-            ui.label(egui::RichText::new(lab).color(C::MUTED));
+            ui.label(egui::RichText::new(lab).color(C::MUTED()));
             let mut v = i.f(k, 0.0);
             let r = ui.add(egui::DragValue::new(&mut v).speed(1.0));
             if r.drag_started() || (r.changed() && !r.dragged()) {
@@ -254,7 +254,7 @@ fn inst_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
             }
             ui.end_row();
         }
-        ui.label(egui::RichText::new("Opacité (%)").color(C::MUTED));
+        ui.label(egui::RichText::new("Opacité (%)").color(C::MUTED()));
         let mut op = i.get("opacity").and_then(|v| v.as_f64()).unwrap_or(1.0) * 100.0;
         if ui.add(egui::Slider::new(&mut op, 0.0..=100.0)).changed() {
             if let Some(ii) = app.inst_mut(id) {
@@ -264,7 +264,7 @@ fn inst_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
         }
         ui.end_row();
         for (k, lab, def) in [("visible", "Visible", true), ("mirrored", "Miroir", false), ("hud", "Fixe à l’écran (interface)", false), ("off", "Désactivée (absente du jeu)", false)] {
-            ui.label(egui::RichText::new(lab).color(C::MUTED));
+            ui.label(egui::RichText::new(lab).color(C::MUTED()));
             let mut b = i.get(k).map(|v| v.as_bool().unwrap_or(def)).unwrap_or(def);
             if ui.checkbox(&mut b, "").changed() {
                 edit_inst(app, id, |ii| ii[k] = Json::Bool(b));
@@ -273,7 +273,7 @@ fn inst_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
         }
         // calque
         if let Some(l) = app.layout().cloned() {
-            ui.label(egui::RichText::new("Calque").color(C::MUTED));
+            ui.label(egui::RichText::new("Calque").color(C::MUTED()));
             let cur = i.s("layer").to_string();
             let name = l.arr("layers").iter().find(|y| y.s("id") == cur).or_else(|| l.arr("layers").first()).map(|y| y.s("name").to_string()).unwrap_or_default();
             egui::ComboBox::from_id_salt("ilayer").selected_text(name).show_ui(ui, |ui| {
@@ -288,7 +288,7 @@ fn inst_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
         }
         let k = o.s("kind");
         if k == "text" || k == "button" {
-            ui.label(egui::RichText::new("Texte").color(C::MUTED));
+            ui.label(egui::RichText::new("Texte").color(C::MUTED()));
             let mut t = i.get("text").map(pf_runtime::rt::jstr).unwrap_or_else(|| o.s("text").to_string());
             if ui.add(egui::TextEdit::multiline(&mut t).desired_rows(2)).changed() {
                 if let Some(ii) = app.inst_mut(id) {
@@ -299,7 +299,7 @@ fn inst_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
             ui.end_row();
         }
         if k == "bar" {
-            ui.label(egui::RichText::new("Valeur de départ").color(C::MUTED));
+            ui.label(egui::RichText::new("Valeur de départ").color(C::MUTED()));
             let mut v = i.get("value").and_then(|v| v.as_f64()).unwrap_or(o.f("value", 100.0));
             if ui.add(egui::DragValue::new(&mut v)).changed() {
                 if let Some(ii) = app.inst_mut(id) {
@@ -323,7 +323,7 @@ fn inst_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
         egui::Grid::new("ivars").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
             for v in vars {
                 let n = v.s("name").to_string();
-                ui.label(egui::RichText::new(&n).color(C::MUTED));
+                ui.label(egui::RichText::new(&n).color(C::MUTED()));
                 let cur = i.get("vars").and_then(|m| m.get(&n)).cloned().unwrap_or_else(|| v.get("value").cloned().unwrap_or(json!(0)));
                 let mut s = pf_runtime::rt::jstr(&cur);
                 if ui.add(egui::TextEdit::singleline(&mut s).desired_width(120.0)).changed() {
@@ -393,7 +393,7 @@ fn obj_props(app: &mut App, ui: &mut egui::Ui, id: &str, now: f64) {
     if kind == "particles" {
         theme::section(ui, "Émetteur de particules");
         ui.horizontal_wrapped(|ui| {
-            ui.label(egui::RichText::new("Préréglage :").color(C::MUTED));
+            ui.label(egui::RichText::new("Préréglage :").color(C::MUTED()));
             if let Some(pr) = pf_core::catalog::catalog()["PTPRESETS"].as_object() {
                 for (k, p) in pr {
                     if ui.add(theme::btn_small(p.s("n"))).clicked() {
@@ -473,7 +473,7 @@ fn obj_props(app: &mut App, ui: &mut egui::Ui, id: &str, now: f64) {
         let anims = edited.arr("anims").to_vec();
         for (k, a) in anims.iter().enumerate() {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(format!("{} — {} image(s), {} img/s{}", a.s("name"), a.arr("frames").len(), a.f("speed", 0.0), if a.get("loop") == Some(&Json::Bool(false)) { "" } else { ", en boucle" })).color(C::TEXT2));
+                ui.label(egui::RichText::new(format!("{} — {} image(s), {} img/s{}", a.s("name"), a.arr("frames").len(), a.f("speed", 0.0), if a.get("loop") == Some(&Json::Bool(false)) { "" } else { ", en boucle" })).color(C::TEXT2()));
                 if ui.add(theme::btn_small("Image…")).on_hover_text("Remplacer la première image (PNG)").clicked() {
                     if let Some(p) = rfd::FileDialog::new().add_filter("Image", &["png", "jpg", "jpeg", "gif", "webp"]).pick_file() {
                         if let Ok(b) = std::fs::read(&p) {
@@ -520,20 +520,20 @@ fn obj_props(app: &mut App, ui: &mut egui::Ui, id: &str, now: f64) {
         for (bi, b) in bhs.iter().enumerate() {
             let t = b.s("type");
             let d = cat.get(t).cloned().unwrap_or(Json::Null);
-            egui::Frame::new().fill(C::BG2).corner_radius(8.0).inner_margin(8.0).stroke(egui::Stroke::new(1.0, C::LINE)).show(ui, |ui| {
+            egui::Frame::new().fill(C::BG2()).corner_radius(8.0).inner_margin(8.0).stroke(egui::Stroke::new(1.0, C::LINE())).show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(d.s("n")).strong().color(C::TEXT));
+                    ui.label(egui::RichText::new(d.s("n")).strong().color(C::TEXT()));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.small_button("✕").on_hover_text("Retirer").clicked() {
                             remove = Some(bi);
                         }
                     });
                 });
-                ui.label(egui::RichText::new(d.s("d")).size(11.0).color(C::DIM));
+                ui.label(egui::RichText::new(d.s("d")).size(11.0).color(C::DIM()));
                 if let Some(ps) = d.get("p").and_then(|p| p.as_object()) {
                     egui::Grid::new(("bp", bi)).num_columns(2).spacing([8.0, 4.0]).show(ui, |ui| {
                         for (pk, pd) in ps {
-                            ui.label(egui::RichText::new(pd.s("l")).size(12.0).color(C::MUTED));
+                            ui.label(egui::RichText::new(pd.s("l")).size(12.0).color(C::MUTED()));
                             let mut v = b.get("props").and_then(|p| p.get(pk)).cloned().unwrap_or_else(|| pd.get("d").cloned().unwrap_or(Json::Null));
                             if beh_param(ui, app, pd, &mut v) {
                                 if !edited["behaviors"][bi].get("props").map(|p| p.is_object()).unwrap_or(false) {
@@ -649,7 +649,7 @@ fn layout_props(app: &mut App, ui: &mut egui::Ui) {
             e["bg"] = json!("#000000");
         }
         ch |= field(ui, "bg", &mut e["bg"], "Couleur de fond");
-        ui.label(egui::RichText::new("Feuille d’événements").color(C::MUTED));
+        ui.label(egui::RichText::new("Feuille d’événements").color(C::MUTED()));
         let cur = e.s("sheet").to_string();
         let nm = app.proj.arr("sheets").iter().find(|s| s.s("id") == cur).map(|s| s.s("name").to_string()).unwrap_or_else(|| "(aucune)".into());
         egui::ComboBox::from_id_salt("lsheet").selected_text(nm).show_ui(ui, |ui| {
@@ -671,7 +671,7 @@ fn layout_props(app: &mut App, ui: &mut egui::Ui) {
     let mut mv: Option<(usize, i32)> = None;
     let mut del = None;
     for (k, y) in layers.iter().enumerate() {
-        egui::Frame::new().fill(C::BG2).corner_radius(8.0).inner_margin(6.0).show(ui, |ui| {
+        egui::Frame::new().fill(C::BG2()).corner_radius(8.0).inner_margin(6.0).show(ui, |ui| {
             ui.horizontal(|ui| {
                 let mut n = y.s("name").to_string();
                 if ui.add(egui::TextEdit::singleline(&mut n).desired_width(110.0)).changed() {
@@ -690,14 +690,14 @@ fn layout_props(app: &mut App, ui: &mut egui::Ui) {
             });
             ui.horizontal(|ui| {
                 let mut px = y.f("parallaxX", 100.0);
-                ui.label(egui::RichText::new("Parallaxe %").size(11.0).color(C::MUTED));
+                ui.label(egui::RichText::new("Parallaxe %").size(11.0).color(C::MUTED()));
                 if ui.add(egui::DragValue::new(&mut px).range(0.0..=400.0)).on_hover_text("0 = fixe à l’écran (interface), 100 = normal, <100 = arrière-plan lointain").changed() {
                     e["layers"][k]["parallaxX"] = json!(px);
                     e["layers"][k]["parallaxY"] = json!(px);
                     ch = true;
                 }
                 let mut op = y.f("opacity", 100.0);
-                ui.label(egui::RichText::new("Opacité").size(11.0).color(C::MUTED));
+                ui.label(egui::RichText::new("Opacité").size(11.0).color(C::MUTED()));
                 if ui.add(egui::DragValue::new(&mut op).range(0.0..=100.0)).changed() {
                     e["layers"][k]["opacity"] = json!(op);
                     ch = true;
@@ -747,7 +747,7 @@ fn global_props(app: &mut App, ui: &mut egui::Ui, n: &str) {
     let mut ch = false;
     egui::Grid::new("gp").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
         ch |= field(ui, "name", &mut e["name"], "Nom");
-        ui.label(egui::RichText::new("Type").color(C::MUTED));
+        ui.label(egui::RichText::new("Type").color(C::MUTED()));
         let mut tx = e.s("type") == "text";
         if ui.checkbox(&mut tx, "texte").changed() {
             e["type"] = Json::String(if tx { "text".into() } else { "number".into() });
@@ -795,7 +795,7 @@ fn sheet_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
             app.changed();
         }
     });
-    ui.label(egui::RichText::new(format!("{} événement(s)", crate::tree::count_events(s.arr("events")))).color(C::DIM));
+    ui.label(egui::RichText::new(format!("{} événement(s)", crate::tree::count_events(s.arr("events")))).color(C::DIM()));
     let used = app.proj.arr("layouts").iter().any(|l| l.s("sheet") == id);
     if ui.add_enabled(!used, theme::btn_small("Supprimer la feuille")).on_disabled_hover_text("Utilisée par un niveau").clicked() {
         app.snapshot();
@@ -821,7 +821,7 @@ fn sound_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
             app.changed();
         }
     });
-    ui.label(egui::RichText::new(format!("{} Ko", s.s("data").len() * 3 / 4 / 1024)).color(C::DIM));
+    ui.label(egui::RichText::new(format!("{} Ko", s.s("data").len() * 3 / 4 / 1024)).color(C::DIM()));
     ui.horizontal(|ui| {
         if ui.add(theme::btn_accent("▶ Écouter")).clicked() {
             if let Some(b) = pf_core::data_url_bytes(s.s("data")) {
@@ -854,7 +854,7 @@ fn settings_props(app: &mut App, ui: &mut egui::Ui) {
         ch |= field(ui, "width", &mut s["width"], "Largeur de l’écran");
         ch |= field(ui, "height", &mut s["height"], "Hauteur de l’écran");
         ch |= field(ui, "pixelArt", &mut s["pixelArt"], "Pixel art (sans lissage)");
-        ui.label(egui::RichText::new("Niveau de départ").color(C::MUTED));
+        ui.label(egui::RichText::new("Niveau de départ").color(C::MUTED()));
         let cur = s.s("startLayout").to_string();
         let nm = app.proj.arr("layouts").iter().find(|l| l.s("id") == cur).map(|l| l.s("name").to_string()).unwrap_or_else(|| "(le premier)".into());
         egui::ComboBox::from_id_salt("start").selected_text(nm).show_ui(ui, |ui| {
@@ -872,7 +872,7 @@ fn settings_props(app: &mut App, ui: &mut egui::Ui) {
         s["transition"] = json!({"type":"fade","dur":0.5,"color":"#000000"});
     }
     egui::Grid::new("tr").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
-        ui.label(egui::RichText::new("Type").color(C::MUTED));
+        ui.label(egui::RichText::new("Type").color(C::MUTED()));
         let cur = s["transition"].s("type").to_string();
         egui::ComboBox::from_id_salt("trt").selected_text(match cur.as_str() { "none" => "aucune", "iris" => "cercle", "wipe" => "balayage", _ => "fondu" }).show_ui(ui, |ui| {
             for (k, n) in [("none", "aucune"), ("fade", "fondu"), ("iris", "cercle"), ("wipe", "balayage")] {
@@ -939,26 +939,26 @@ fn settings_props(app: &mut App, ui: &mut egui::Ui) {
 /// panneau du débogueur pendant le test
 pub fn debugger(ui: &mut egui::Ui, p: &mut Play) {
     let rt = &mut p.rt;
-    ui.label(egui::RichText::new("Débogueur").strong().size(15.0).color(C::TEXT));
-    ui.label(egui::RichText::new(format!("Niveau « {} » · image {} · {:.1} s · {} objet(s)", rt.layout_name(), rt.tick, rt.time, rt.all.len())).color(C::MUTED));
+    ui.label(egui::RichText::new("Débogueur").strong().size(15.0).color(C::TEXT()));
+    ui.label(egui::RichText::new(format!("Niveau « {} » · image {} · {:.1} s · {} objet(s)", rt.layout_name(), rt.tick, rt.time, rt.all.len())).color(C::MUTED()));
     ui.horizontal(|ui| {
         ui.label("Vitesse");
         ui.add(egui::Slider::new(&mut rt.dbg_speed, 0.05..=4.0).logarithmic(true));
     });
     if let Some((id, t)) = &rt.brk_hit {
-        ui.colored_label(C::ACCENT, format!("Point d’arrêt atteint ({} à l’image {})", id, t));
+        ui.colored_label(C::ACCENT(), format!("Point d’arrêt atteint ({} à l’image {})", id, t));
     }
     if !rt.errors.is_empty() {
         theme::section(ui, "Erreurs");
         for e in &rt.errors {
-            ui.colored_label(C::DANGER, e);
+            ui.colored_label(C::DANGER(), e);
         }
     }
     theme::section(ui, "Variables globales");
     egui::Grid::new("dg").num_columns(2).show(ui, |ui| {
         let gl = rt.globals.clone();
         for (k, v) in gl {
-            ui.label(egui::RichText::new(&k).color(C::MUTED));
+            ui.label(egui::RichText::new(&k).color(C::MUTED()));
             let mut s = v.str();
             if ui.add(egui::TextEdit::singleline(&mut s).desired_width(110.0)).changed() {
                 let nv = if v.is_str() { pf_core::Val::S(s) } else { pf_core::Val::N(pf_core::Val::S(s).num0()) };
@@ -986,7 +986,7 @@ pub fn debugger(ui: &mut egui::Ui, p: &mut Play) {
                         line += &format!("  {}={}", k, v);
                     }
                     let uid = i.uid;
-                    let r = ui.label(egui::RichText::new(line).monospace().size(11.0).color(C::TEXT2));
+                    let r = ui.label(egui::RichText::new(line).monospace().size(11.0).color(C::TEXT2()));
                     if r.hovered() {
                         rt.hl = Some(uid);
                     }

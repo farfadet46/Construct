@@ -128,7 +128,7 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
     let (dsz, msz) = theme::fit(ctx, 620.0, 600.0);
     egui::Window::new(format!("Cinématique — {}", c.s("name"))).id(egui::Id::new("cineed")).open(&mut open).default_size(dsz).max_size(msz).constrain(true).show(ctx, |ui| {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Nom").color(C::MUTED));
+            ui.label(RichText::new("Nom").color(C::MUTED()));
             let mut n = e.s("name").to_string();
             if ui.add(egui::TextEdit::singleline(&mut n).desired_width(180.0)).changed() {
                 e["name"] = Json::String(n);
@@ -157,10 +157,10 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
             for (si, s) in steps.iter().enumerate() {
                 let d = defs.iter().find(|x| x.0 == s.s("t"));
                 let together = pf_runtime::rt::jtruthy(s.get("w"));
-                egui::Frame::new().fill(C::BG2).corner_radius(8.0).inner_margin(8.0).stroke(egui::Stroke::new(1.0, if together { C::ACCENT_SOFT } else { C::LINE })).show(ui, |ui| {
+                egui::Frame::new().fill(C::BG2()).corner_radius(8.0).inner_margin(8.0).stroke(egui::Stroke::new(1.0, if together { C::ACCENT_SOFT() } else { C::LINE() })).show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.label(RichText::new(format!("{} {}", d.map(|x| x.2).unwrap_or("?"), d.map(|x| x.1).unwrap_or("?"))).strong().color(C::TEXT));
-                        ui.label(RichText::new(summary(app, s)).color(C::MUTED));
+                        ui.label(RichText::new(format!("{} {}", d.map(|x| x.2).unwrap_or("?"), d.map(|x| x.1).unwrap_or("?"))).strong().color(C::TEXT()));
+                        ui.label(RichText::new(summary(app, s)).color(C::MUTED()));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui.small_button("✕").clicked() {
                                 act = Some((si, 0));
@@ -181,7 +181,7 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
                     egui::CollapsingHeader::new("Réglages").id_salt(("cs", si)).show(ui, |ui| {
                         egui::Grid::new(("csg", si)).num_columns(2).spacing([8.0, 4.0]).show(ui, |ui| {
                             for f in d.map(|x| x.3.clone()).unwrap_or_default() {
-                                ui.label(RichText::new(f.1).color(C::MUTED));
+                                ui.label(RichText::new(f.1).color(C::MUTED()));
                                 let v = &mut e["steps"][si][f.0];
                                 ch |= field(app, ui, f.2, v, s, (si, f.0));
                                 ui.end_row();
@@ -215,7 +215,7 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
             }
         });
-        ui.label(RichText::new("Jouez-la depuis les événements avec l’action Système « Jouer une cinématique ».").size(11.0).color(C::DIM));
+        ui.label(RichText::new("Jouez-la depuis les événements avec l’action Système « Jouer une cinématique ».").size(11.0).color(C::DIM()));
     });
     if ch {
         app.snapshot();
@@ -333,7 +333,7 @@ fn field(app: &App, ui: &mut egui::Ui, t: &str, v: &mut Json, step: &Json, salt:
             }
             if mono {
                 if let Err(er) = pf_core::expr::parse(&s) {
-                    ui.label(RichText::new(format!("⚠ {}", er)).size(11.0).color(C::DANGER));
+                    ui.label(RichText::new(format!("⚠ {}", er)).size(11.0).color(C::DANGER()));
                 }
             }
         }
@@ -620,8 +620,8 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
         // forme du son
         let (rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 80.0), egui::Sense::hover());
         let p = ui.painter_at(rect);
-        p.rect_filled(rect, 6.0, C::BG0);
-        p.line_segment([rect.left_center(), rect.right_center()], egui::Stroke::new(1.0, C::LINE2));
+        p.rect_filled(rect, 6.0, C::BG0());
+        p.line_segment([rect.left_center(), rect.right_center()], egui::Stroke::new(1.0, C::LINE2()));
         let n = ed.data.len().max(1);
         let w = rect.width() as usize;
         for x in 0..w {
@@ -633,16 +633,16 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
                 mx = mx.max(*v);
             }
             let h = rect.height() / 2.0 * 1.2;
-            p.line_segment([egui::pos2(rect.left() + x as f32, rect.center().y - mx * h), egui::pos2(rect.left() + x as f32, rect.center().y - mn * h + 1.0)], egui::Stroke::new(1.0, C::ACCENT));
+            p.line_segment([egui::pos2(rect.left() + x as f32, rect.center().y - mx * h), egui::pos2(rect.left() + x as f32, rect.center().y - mn * h + 1.0)], egui::Stroke::new(1.0, C::ACCENT()));
         }
         ui.horizontal(|ui| {
             if ui.add(theme::btn_accent("▶ Écouter")).clicked() {
                 play = true;
             }
-            ui.label(RichText::new(format!("Durée {:.2} s", ed.data.len() as f64 / 22050.0)).color(C::MUTED));
+            ui.label(RichText::new(format!("Durée {:.2} s", ed.data.len() as f64 / 22050.0)).color(C::MUTED()));
         });
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Forme d’onde").color(C::MUTED));
+            ui.label(RichText::new("Forme d’onde").color(C::MUTED()));
             for (k, n) in SFXW {
                 if ui.add(theme::tab(ed.p.s("wave") == *k, n)).clicked() {
                     ed.p["wave"] = json!(k);
@@ -653,7 +653,7 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
         egui::Grid::new("sfxp").num_columns(2).spacing([10.0, 4.0]).show(ui, |ui| {
             for d in SFXP {
                 let off = (d.0 == "duty" && ed.p.s("wave") != "square") || (d.0 == "arpT" && ed.p.f("arp", 0.0) == 0.0) || (d.0 == "vibSpeed" && ed.p.f("vibDepth", 0.0) == 0.0);
-                ui.label(RichText::new(d.1).color(if off { C::DIM } else { C::MUTED }));
+                ui.label(RichText::new(d.1).color(if off { C::DIM() } else { C::MUTED() }));
                 let mut v = ed.p.f(d.0, 0.0);
                 let r = ui.add_enabled(!off, egui::Slider::new(&mut v, d.3..=d.4).step_by(d.5).suffix(format!(" {}", d.2)));
                 if r.changed() {
@@ -668,7 +668,7 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
         });
         ui.separator();
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Nom du son").color(C::MUTED));
+            ui.label(RichText::new("Nom du son").color(C::MUTED()));
             ui.add(egui::TextEdit::singleline(&mut ed.name).desired_width(160.0));
             if ui.add(theme::btn_accent(if ed.sound.is_some() { "Enregistrer" } else { "Ajouter au projet" })).clicked() {
                 save = true;
@@ -783,7 +783,7 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
     let (dsz, msz) = theme::fit(ctx, 900.0, 640.0);
     egui::Window::new(format!("Éditeur de piste — {}", o.s("name"))).id(egui::Id::new("tked")).open(&mut open).default_size(dsz).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
         ui.horizontal_wrapped(|ui| {
-            ui.label(RichText::new("Modèle :").color(C::MUTED));
+            ui.label(RichText::new("Modèle :").color(C::MUTED()));
             for (n, d, t) in TK_PRESETS {
                 if ui.add(theme::btn_small(n)).on_hover_text(*d).clicked() {
                     ed.secs = t.to_vec();
@@ -799,10 +799,10 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                 let mut act: Option<(usize, i32)> = None;
                 egui::ScrollArea::vertical().max_height((ui.available_height() - 40.0).clamp(160.0, 470.0)).show(ui, |ui| {
                     for k in 0..ed.secs.len() {
-                        egui::Frame::new().fill(C::BG2).corner_radius(6.0).inner_margin(6.0).show(ui, |ui| {
+                        egui::Frame::new().fill(C::BG2()).corner_radius(6.0).inner_margin(6.0).show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new(format!("{}.", k + 1)).color(C::DIM));
-                                ui.label(RichText::new(tk_desc(&ed.secs[k])).color(C::TEXT2));
+                                ui.label(RichText::new(format!("{}.", k + 1)).color(C::DIM()));
+                                ui.label(RichText::new(tk_desc(&ed.secs[k])).color(C::TEXT2()));
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                     if ui.small_button("✕").clicked() {
                                         act = Some((k, 0));
@@ -819,13 +819,13 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                                 });
                             });
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new("Longueur").size(11.0).color(C::MUTED));
+                                ui.label(RichText::new("Longueur").size(11.0).color(C::MUTED()));
                                 ch |= ui.add(egui::DragValue::new(&mut ed.secs[k][0]).range(5.0..=2000.0).speed(1.0)).changed();
-                                ui.label(RichText::new("Virage").size(11.0).color(C::MUTED));
+                                ui.label(RichText::new("Virage").size(11.0).color(C::MUTED()));
                                 ch |= ui.add(egui::Slider::new(&mut ed.secs[k][1], -8.0..=8.0).step_by(0.5).show_value(true)).on_hover_text("négatif = à gauche, positif = à droite").changed();
                             });
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new("Relief").size(11.0).color(C::MUTED));
+                                ui.label(RichText::new("Relief").size(11.0).color(C::MUTED()));
                                 ch |= ui.add(egui::Slider::new(&mut ed.secs[k][2], -80.0..=80.0).step_by(5.0)).on_hover_text("positif = monte, négatif = descend").changed();
                                 if ui.add(theme::btn_small("Voir")).on_hover_text("Placer la caméra au début de ce tronçon").clicked() {
                                     let before: f64 = ed.secs[..k].iter().map(|q| q[0]).sum();
@@ -926,7 +926,7 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                 theme::section(ui, "Vue de dessus et relief");
                 let (rect, _) = ui.allocate_exact_size(egui::vec2(w as f32, 150.0), egui::Sense::hover());
                 let p = ui.painter_at(rect);
-                p.rect_filled(rect, 6.0, C::BG0);
+                p.rect_filled(rect, 6.0, C::BG0());
                 let mb = r.mb;
                 let sc = ((rect.width() - 20.0) as f64 / (mb[2] - mb[0]).max(1e-6)).min((rect.height() - 20.0) as f64 / (mb[3] - mb[1]).max(1e-6));
                 let cx = rect.center().x as f64 - (mb[0] + mb[2]) / 2.0 * sc;
@@ -946,15 +946,15 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                 }
                 let (rect2, _) = ui.allocate_exact_size(egui::vec2(w as f32, 60.0), egui::Sense::hover());
                 let p2 = ui.painter_at(rect2);
-                p2.rect_filled(rect2, 6.0, C::BG0);
+                p2.rect_filled(rect2, 6.0, C::BG0());
                 let ys: Vec<f64> = r.segs.iter().map(|s| s.p1.y).collect();
                 let (mn, mx) = ys.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |a, &y| (a.0.min(y), a.1.max(y)));
                 let span = (mx - mn).max(1.0);
                 let prof: Vec<egui::Pos2> = ys.iter().enumerate().map(|(i, y)| egui::pos2(rect2.left() + 6.0 + (i as f32 / ys.len().max(1) as f32) * (rect2.width() - 12.0), rect2.bottom() - 8.0 - ((y - mn) / span) as f32 * (rect2.height() - 16.0))).collect();
-                p2.add(egui::Shape::line(prof, egui::Stroke::new(2.0, C::OK)));
+                p2.add(egui::Shape::line(prof, egui::Stroke::new(2.0, C::OK())));
                 let x = rect2.left() + 6.0 + (k as f32 / ys.len().max(1) as f32) * (rect2.width() - 12.0);
                 p2.line_segment([egui::pos2(x, rect2.top()), egui::pos2(x, rect2.bottom())], egui::Stroke::new(1.0, egui::Color32::from_rgb(0xff, 0x3b, 0x4f)));
-                ui.label(RichText::new(format!("{} tronçons · {} segments · un tour ≈ {:.0} s à fond", ed.secs.len(), r.segs.len(), r.len / (r.l * 60.0))).size(11.0).color(C::DIM));
+                ui.label(RichText::new(format!("{} tronçons · {} segments · un tour ≈ {:.0} s à fond", ed.secs.len(), r.segs.len(), r.len / (r.l * 60.0))).size(11.0).color(C::DIM()));
             });
         });
     });

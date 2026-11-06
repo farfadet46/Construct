@@ -179,7 +179,7 @@ pub fn add_instance(app: &mut App, oid: &str, x: f64, y: f64) {
 }
 
 pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
-    egui::SidePanel::left("tree").default_width(250.0).min_width(200.0).frame(egui::Frame::new().fill(C::BG1).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0, C::LINE))).show(ctx, |ui| {
+    egui::SidePanel::left("tree").default_width(250.0).min_width(200.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0, C::LINE()))).show(ctx, |ui| {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             // ---- niveaux
             ui.horizontal(|ui| {
@@ -207,7 +207,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                 let id = l.s("id").to_string();
                 let on = id == app.cur_layout;
                 let star = if id == start || (start.is_empty() && app.proj.arr("layouts").first().map(|x| x.s("id")) == Some(&id)) { "  ★" } else { "" };
-                let r = ui.add(egui::SelectableLabel::new(on, egui::RichText::new(format!("▦  {}{}", l.s("name"), star)).color(if on { C::TEXT } else { C::TEXT2 })));
+                let r = ui.add(egui::SelectableLabel::new(on, egui::RichText::new(format!("▦  {}{}", l.s("name"), star)).color(if on { C::TEXT() } else { C::TEXT2() })));
                 if r.clicked() {
                     app.cur_layout = id.clone();
                     let sh = l.s("sheet").to_string();
@@ -268,7 +268,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                 let id = s.s("id").to_string();
                 let on = id == app.cur_sheet && app.tab == Tab::Events;
                 let n = count_events(s.arr("events"));
-                let r = ui.add(egui::SelectableLabel::new(on, egui::RichText::new(format!("☰  {}   ", s.s("name"))).color(if on { C::TEXT } else { C::TEXT2 }))).on_hover_text(format!("{} événement(s)", n));
+                let r = ui.add(egui::SelectableLabel::new(on, egui::RichText::new(format!("☰  {}   ", s.s("name"))).color(if on { C::TEXT() } else { C::TEXT2() }))).on_hover_text(format!("{} événement(s)", n));
                 if r.clicked() {
                     app.cur_sheet = id.clone();
                     app.sel = Sel::Sheet(id.clone());
@@ -302,7 +302,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
                 let id = o.s("id").to_string();
                 let on = app.sel == Sel::Obj(id.clone());
-                let txt = egui::RichText::new(format!("{}  {}", glyph(o.s("kind")), o.s("name"))).color(if on { C::TEXT } else { C::TEXT2 });
+                let txt = egui::RichText::new(format!("{}  {}", glyph(o.s("kind")), o.s("name"))).color(if on { C::TEXT() } else { C::TEXT2() });
                 let r = ui.dnd_drag_source(egui::Id::new(("obj", &id)), id.clone(), |ui| {
                     ui.add(egui::SelectableLabel::new(on, txt));
                 });
@@ -429,7 +429,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
             }
             ui.add_space(10.0);
-            if ui.add(egui::SelectableLabel::new(false, egui::RichText::new("⚙  Paramètres du jeu").color(C::TEXT2))).clicked() {
+            if ui.add(egui::SelectableLabel::new(false, egui::RichText::new("⚙  Paramètres du jeu").color(C::TEXT2()))).clicked() {
                 app.sel = Sel::None;
             }
         });

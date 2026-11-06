@@ -207,20 +207,20 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             ("native", "Application de bureau", "Une copie de PlatForge qui lance directement votre jeu, pour ce système (Windows, macOS ou Linux)."),
         ] {
             ui.radio_value(&mut st.format, k.to_string(), RichText::new(n).strong());
-            ui.label(RichText::new(d).size(11.0).color(C::DIM));
+            ui.label(RichText::new(d).size(11.0).color(C::DIM()));
             ui.add_space(4.0);
         }
         ui.separator();
         if st.format != "native" {
             egui::Grid::new("exg").num_columns(2).spacing([10.0, 6.0]).show(ui, |ui| {
-                ui.label(RichText::new("Titre").color(C::MUTED));
+                ui.label(RichText::new("Titre").color(C::MUTED()));
                 let mut t = st.o.s("title").to_string();
                 if ui.add(egui::TextEdit::singleline(&mut t).desired_width(240.0)).changed() {
                     st.o["title"] = Json::String(t);
                 }
                 ui.end_row();
                 for (k, l) in [("bg", "Couleur de fond"), ("accent", "Couleur d’accent")] {
-                    ui.label(RichText::new(l).color(C::MUTED));
+                    ui.label(RichText::new(l).color(C::MUTED()));
                     let mut c = theme::color32(st.o.s(k));
                     if ui.color_edit_button_srgba(&mut c).changed() {
                         st.o[k] = Json::String(format!("#{:02x}{:02x}{:02x}", c.r(), c.g(), c.b()));
@@ -228,7 +228,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     ui.end_row();
                 }
                 for (k, l) in [("splash", "Écran « Cliquez pour jouer » (nécessaire pour le son sur le web)"), ("touch", "Boutons tactiles sur mobile"), ("showTitle", "Afficher le titre au chargement")] {
-                    ui.label(RichText::new(l).color(C::MUTED));
+                    ui.label(RichText::new(l).color(C::MUTED()));
                     let mut b = st.o.get(k) != Some(&Json::Bool(false));
                     if ui.checkbox(&mut b, "").changed() {
                         st.o[k] = Json::Bool(b);
@@ -236,7 +236,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     ui.end_row();
                 }
                 for (k, l) in [("logo", "Logo de l’écran de chargement"), ("icon", "Icône du jeu")] {
-                    ui.label(RichText::new(l).color(C::MUTED));
+                    ui.label(RichText::new(l).color(C::MUTED()));
                     let cur = st.o.s(k).to_string();
                     let nm = app.obj(&cur).map(|o| o.s("name").to_string()).unwrap_or_else(|| "(aucun)".into());
                     egui::ComboBox::from_id_salt(k).selected_text(nm).show_ui(ui, |ui| {

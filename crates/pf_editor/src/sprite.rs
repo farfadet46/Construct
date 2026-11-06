@@ -390,7 +390,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
             }
             ui.separator();
-            ui.label(egui::RichText::new("Taille").color(C::MUTED));
+            ui.label(egui::RichText::new("Taille").color(C::MUTED()));
             ui.add(egui::DragValue::new(&mut ed.brush).range(1..=8));
             ui.separator();
             if ui.add_enabled(!ed.undo.is_empty(), theme::btn_small("↶")).on_hover_text("Annuler (Ctrl+Z)").clicked() {
@@ -401,7 +401,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             }
             ui.toggle_value(&mut ed.grid, "Grille");
             ui.toggle_value(&mut ed.onion, "Pelure d’oignon");
-            ui.label(egui::RichText::new("Zoom").color(C::MUTED));
+            ui.label(egui::RichText::new("Zoom").color(C::MUTED()));
             ui.add(egui::Slider::new(&mut ed.zoom, 1.0..=48.0).integer());
             ui.separator();
             if ui.add(theme::btn_accent("Enregistrer")).on_hover_text("Enregistrer dans le projet").clicked() {
@@ -415,7 +415,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 close = true;
             }
             if ed.dirty {
-                ui.label(egui::RichText::new("●").color(C::ACCENT)).on_hover_text("Modifications non enregistrées");
+                ui.label(egui::RichText::new("●").color(C::ACCENT())).on_hover_text("Modifications non enregistrées");
             }
         });
         ui.separator();
@@ -473,17 +473,17 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
                 let a = &mut ed.anims[ed.ca];
                 egui::Grid::new("anp").num_columns(2).show(ui, |ui| {
-                    ui.label(egui::RichText::new("Nom").color(C::MUTED));
+                    ui.label(egui::RichText::new("Nom").color(C::MUTED()));
                     if ui.add(egui::TextEdit::singleline(&mut a.name).desired_width(110.0)).changed() {
                         ed.dirty = true;
                     }
                     ui.end_row();
-                    ui.label(egui::RichText::new("Images / s").color(C::MUTED));
+                    ui.label(egui::RichText::new("Images / s").color(C::MUTED()));
                     if ui.add(egui::DragValue::new(&mut a.speed).range(0.0..=60.0)).changed() {
                         ed.dirty = true;
                     }
                     ui.end_row();
-                    ui.label(egui::RichText::new("En boucle").color(C::MUTED));
+                    ui.label(egui::RichText::new("En boucle").color(C::MUTED()));
                     if ui.checkbox(&mut a.looping, "").changed() {
                         ed.dirty = true;
                     }
@@ -492,7 +492,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 theme::section(ui, "Couleur");
                 ui.horizontal(|ui| {
                     ui.color_edit_button_srgba(&mut ed.color);
-                    ui.label(egui::RichText::new(format!("#{:02x}{:02x}{:02x}", ed.color.r(), ed.color.g(), ed.color.b())).monospace().color(C::MUTED));
+                    ui.label(egui::RichText::new(format!("#{:02x}{:02x}{:02x}", ed.color.r(), ed.color.g(), ed.color.b())).monospace().color(C::MUTED()));
                 });
                 egui::Grid::new("pal").spacing([2.0, 2.0]).show(ui, |ui| {
                     let mut cols: Vec<Color32> = PAL.iter().map(|c| Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, *c as u8)).collect();
@@ -532,7 +532,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     }
                 }
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Planche :").color(C::MUTED));
+                    ui.label(egui::RichText::new("Planche :").color(C::MUTED()));
                     ui.add(egui::DragValue::new(&mut ed.sheet_cols).range(1..=64)).on_hover_text("colonnes");
                     ui.label("×");
                     ui.add(egui::DragValue::new(&mut ed.sheet_rows).range(1..=64)).on_hover_text("lignes");
@@ -574,7 +574,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                             ed.anims[ca].poly[cf] = None;
                         }
                     });
-                    ui.label(egui::RichText::new("Outil Polygone : clic = ajouter un sommet, glisser = déplacer, clic droit = supprimer").size(11.0).color(C::DIM));
+                    ui.label(egui::RichText::new("Outil Polygone : clic = ajouter un sommet, glisser = déplacer, clic droit = supprimer").size(11.0).color(C::DIM()));
                 }
                 theme::section(ui, "Points d’image");
                 let mut delp = None;
@@ -641,7 +641,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         }
                     }
                 });
-                ui.label(egui::RichText::new(format!("Origine ({:.0}, {:.0}) · boîte {:.0},{:.0} {:.0}×{:.0}", ed.ox, ed.oy, ed.cbox[0], ed.cbox[1], ed.cbox[2], ed.cbox[3])).size(11.0).color(C::DIM));
+                ui.label(egui::RichText::new(format!("Origine ({:.0}, {:.0}) · boîte {:.0},{:.0} {:.0}×{:.0}", ed.ox, ed.oy, ed.cbox[0], ed.cbox[1], ed.cbox[2], ed.cbox[3])).size(11.0).color(C::DIM()));
             });
             });
             ui.separator();
@@ -743,8 +743,8 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             p.rect_stroke(r, 0.0, egui::Stroke::new(1.5, Color32::from_rgb(0x3d, 0xdc, 0x97)), egui::StrokeKind::Middle);
         }
         let o = rect.min + egui::vec2(ed.ox as f32 * z, ed.oy as f32 * z);
-        p.line_segment([o - egui::vec2(7.0, 0.0), o + egui::vec2(7.0, 0.0)], egui::Stroke::new(1.5, C::ACCENT));
-        p.line_segment([o - egui::vec2(0.0, 7.0), o + egui::vec2(0.0, 7.0)], egui::Stroke::new(1.5, C::ACCENT));
+        p.line_segment([o - egui::vec2(7.0, 0.0), o + egui::vec2(7.0, 0.0)], egui::Stroke::new(1.5, C::ACCENT()));
+        p.line_segment([o - egui::vec2(0.0, 7.0), o + egui::vec2(0.0, 7.0)], egui::Stroke::new(1.5, C::ACCENT()));
         // polygone de collision et points d'image
         let (ca, cf) = (ed.ca, ed.cf);
         let to_s = |q: [f64; 2]| rect.min + egui::vec2(q[0] as f32 * z, q[1] as f32 * z);
@@ -767,7 +767,7 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             let loc = ed.anims[ca].pts.get(cf).and_then(|m| m.get(n)).or_else(|| ed.anims[ca].pts.first().and_then(|m| m.get(n))).map(|v| [v[0].as_f64().unwrap_or(0.0), v[1].as_f64().unwrap_or(0.0)]);
             if let Some(q) = loc {
                 let c = to_s(q);
-                let col = if k == ed.cur_pt && ed.tool == STool::Point { C::ACCENT } else { Color32::from_rgb(0x4d, 0xa3, 0xff) };
+                let col = if k == ed.cur_pt && ed.tool == STool::Point { C::ACCENT() } else { Color32::from_rgb(0x4d, 0xa3, 0xff) };
                 p.add(egui::Shape::convex_polygon(vec![c + egui::vec2(0.0, -6.0), c + egui::vec2(6.0, 0.0), c + egui::vec2(0.0, 6.0), c + egui::vec2(-6.0, 0.0)], col, egui::Stroke::new(1.0, Color32::BLACK)));
                 p.text(c + egui::vec2(8.0, -8.0), egui::Align2::LEFT_BOTTOM, n, egui::FontId::proportional(11.0), Color32::WHITE);
             }
@@ -970,10 +970,10 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
                 let t = ed.thumbs.iter().find(|t| t.1 == ed.ca && t.2 == k).unwrap().3.clone();
                 let s = 56.0 / ed.w.max(ed.h) as f32;
                 let (r, resp) = ui.allocate_exact_size(egui::vec2(64.0, 64.0), egui::Sense::click());
-                ui.painter().rect_filled(r, 6.0, C::BG0);
+                ui.painter().rect_filled(r, 6.0, C::BG0());
                 ui.painter().image(t.id(), egui::Rect::from_center_size(r.center(), egui::vec2(ed.w as f32 * s, ed.h as f32 * s)), egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), Color32::WHITE);
-                ui.painter().rect_stroke(r, 6.0, egui::Stroke::new(if k == ed.cf { 2.0 } else { 1.0 }, if k == ed.cf { C::ACCENT } else { C::LINE2 }), egui::StrokeKind::Inside);
-                ui.painter().text(r.left_top() + egui::vec2(4.0, 2.0), egui::Align2::LEFT_TOP, (k + 1).to_string(), egui::FontId::proportional(10.0), C::DIM);
+                ui.painter().rect_stroke(r, 6.0, egui::Stroke::new(if k == ed.cf { 2.0 } else { 1.0 }, if k == ed.cf { C::ACCENT() } else { C::LINE2() }), egui::StrokeKind::Inside);
+                ui.painter().text(r.left_top() + egui::vec2(4.0, 2.0), egui::Align2::LEFT_TOP, (k + 1).to_string(), egui::FontId::proportional(10.0), C::DIM());
                 if resp.clicked() {
                     ed.cf = k;
                 }
@@ -1050,7 +1050,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
         let k = ((t * a.speed) as usize) % a.frames.len();
         if let Some(th) = ed.thumbs.iter().find(|x| x.1 == ed.ca && x.2 == k) {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("Aperçu :").color(C::MUTED));
+                ui.label(egui::RichText::new("Aperçu :").color(C::MUTED()));
                 let s = 64.0 / ed.w.max(ed.h) as f32;
                 ui.image((th.3.id(), egui::vec2(ed.w as f32 * s, ed.h as f32 * s)));
             });

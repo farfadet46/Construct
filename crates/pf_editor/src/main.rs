@@ -9,6 +9,7 @@ mod props;
 mod theme;
 mod export;
 mod find;
+mod history;
 mod more;
 mod tools;
 mod tpl;
@@ -117,12 +118,20 @@ pub struct App {
     pub find: Option<find::FindState>,
     pub export: Option<export::ExportState>,
     pub help: bool,
+    pub show_hist: bool,
+    pub hist: history::HistCache,
+    pub undo_t: Vec<f64>,
+    pub redo_t: Vec<f64>,
 }
 
 impl App {
     fn new(cc: &eframe::CreationContext) -> App {
+        theme::C::LIGHT.store(load_prefs().get("light").and_then(|v| v.as_bool()).unwrap_or(false), std::sync::atomic::Ordering::Relaxed);
         theme::install(&cc.egui_ctx);
         let args: Vec<String> = std::env::args().collect();
+        if std::env::var("PF_LIGHT").is_ok() {
+            theme::set_light(&cc.egui_ctx, true);
+        }
         let mut app = App {
             proj: tpl::make("blank"),
             path: None,
@@ -154,6 +163,10 @@ impl App {
             find: None,
             export: None,
             help: false,
+            show_hist: false,
+            hist: Default::default(),
+            undo_t: Vec::new(),
+            redo_t: Vec::new(),
         };
         // `platforge jeu.json` ouvre un projet ; `platforge --play jeu.json` lance directement le jeu
         let play_only = args.iter().any(|a| a == "--play");
@@ -217,11 +230,14 @@ impl App {
         let s = serde_json::to_string(&self.proj).unwrap_or_default();
         if self.undo.last() != Some(&s) {
             self.undo.push(s);
+            self.undo_t.push(history::now());
             if self.undo.len() > 100 {
                 self.undo.remove(0);
+                self.undo_t.remove(0);
             }
         }
         self.redo.clear();
+        self.redo_t.clear();
     }
     pub fn changed(&mut self) {
         self.dirty = true;
@@ -229,6 +245,8 @@ impl App {
     }
     pub fn do_undo(&mut self) {
         if let Some(s) = self.undo.pop() {
+            let t = self.undo_t.pop().unwrap_or(0.0);
+            self.redo_t.push(t);
             self.redo.push(serde_json::to_string(&self.proj).unwrap_or_default());
             self.proj = serde_json::from_str(&s).unwrap_or(Json::Null);
             self.changed();
@@ -237,6 +255,8 @@ impl App {
     }
     pub fn do_redo(&mut self) {
         if let Some(s) = self.redo.pop() {
+            let t = self.redo_t.pop().unwrap_or(0.0);
+            self.undo_t.push(t);
             self.undo.push(serde_json::to_string(&self.proj).unwrap_or_default());
             self.proj = serde_json::from_str(&s).unwrap_or(Json::Null);
             self.changed();
@@ -314,6 +334,8 @@ impl App {
         self.dirty = false;
         self.undo.clear();
         self.redo.clear();
+        self.undo_t.clear();
+        self.redo_t.clear();
         self.sel = Sel::None;
         self.cur_layout = String::new();
         self.cur_sheet = String::new();
@@ -415,6 +437,9 @@ impl eframe::App for App {
             if z {
                 self.do_undo();
             }
+            if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::H)) {
+                self.show_hist = !self.show_hist;
+            }
             if y {
                 self.do_redo();
             }
@@ -441,7 +466,7 @@ impl eframe::App for App {
         } else {
             tree::panel(self, ctx, now);
             props::panel(self, ctx, now);
-            egui::CentralPanel::default().frame(egui::Frame::new().fill(C::BG0)).show(ctx, |ui| {
+            egui::CentralPanel::default().frame(egui::Frame::new().fill(C::BG0())).show(ctx, |ui| {
                 self.tabs(ui);
                 match self.tab {
                     Tab::Layout => view::ui(self, ui, now),
@@ -461,6 +486,7 @@ impl eframe::App for App {
             if self.help {
                 help_window(self, ctx);
             }
+            history::window(self, ctx);
         }
         if self.show_templates {
             self.templates_window(ctx);
@@ -492,11 +518,11 @@ impl eframe::App for App {
 
 impl App {
     fn top_bar(&mut self, ctx: &egui::Context, now: f64) {
-        egui::TopBottomPanel::top("top").exact_height(46.0).frame(egui::Frame::new().fill(C::BG1).inner_margin(egui::Margin::symmetric(10, 6)).stroke(egui::Stroke::new(1.0, C::LINE))).show(ctx, |ui| {
+        egui::TopBottomPanel::top("top").exact_height(46.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 6)).stroke(egui::Stroke::new(1.0, C::LINE()))).show(ctx, |ui| {
             ui.horizontal_centered(|ui| {
-                ui.label(egui::RichText::new("◆").color(C::ACCENT).size(20.0));
-                ui.label(egui::RichText::new("PlatForge").strong().size(16.0).color(C::TEXT));
-                ui.label(egui::RichText::new("Studio").size(16.0).color(C::MUTED));
+                ui.label(egui::RichText::new("◆").color(C::ACCENT()).size(20.0));
+                ui.label(egui::RichText::new("PlatForge").strong().size(16.0).color(C::TEXT()));
+                ui.label(egui::RichText::new("Studio").size(16.0).color(C::MUTED()));
                 ui.add_space(14.0);
                 if self.play.is_some() {
                     if ui.add(theme::btn_accent("■  Arrêter (Échap)")).clicked() {
@@ -518,14 +544,14 @@ impl App {
                         }
                         ui.toggle_value(&mut p.show_dbg, "Débogueur");
                         ui.toggle_value(&mut p.rt.show_col, "Collisions");
-                        ui.label(egui::RichText::new(format!("Niveau : {}", p.rt.layout_name())).color(C::MUTED));
+                        ui.label(egui::RichText::new(format!("Niveau : {}", p.rt.layout_name())).color(C::MUTED()));
                         if let (Some((_, t)), true) = (&p.rt.brk_hit, p.rt.paused) {
-                            ui.label(egui::RichText::new(format!("● Point d’arrêt atteint (image {}) — « Reprendre » pour continuer", t)).color(C::DANGER));
+                            ui.label(egui::RichText::new(format!("● Point d’arrêt atteint (image {}) — « Reprendre » pour continuer", t)).color(C::DANGER()));
                         }
                     }
                     return;
                 }
-                ui.menu_button(egui::RichText::new("Fichier").color(C::TEXT2), |ui| {
+                ui.menu_button(egui::RichText::new("Fichier").color(C::TEXT2()), |ui| {
                     if ui.button("Nouveau depuis un modèle…").clicked() {
                         self.show_templates = true;
                         ui.close_menu();
@@ -548,13 +574,17 @@ impl App {
                         self.export = Some(export::ExportState::new(self));
                     }
                 });
-                ui.menu_button(egui::RichText::new("Édition").color(C::TEXT2), |ui| {
+                ui.menu_button(egui::RichText::new("Édition").color(C::TEXT2()), |ui| {
                     if ui.add_enabled(!self.undo.is_empty(), egui::Button::new("Annuler  (Ctrl+Z)")).clicked() {
                         self.do_undo();
                         ui.close_menu();
                     }
                     if ui.add_enabled(!self.redo.is_empty(), egui::Button::new("Rétablir  (Ctrl+Y)")).clicked() {
                         self.do_redo();
+                        ui.close_menu();
+                    }
+                    if ui.button("Historique des modifications…  (Ctrl+H)").clicked() {
+                        self.show_hist = true;
                         ui.close_menu();
                     }
                     if ui.button("Rechercher / remplacer…  (Ctrl+F)").clicked() {
@@ -571,7 +601,7 @@ impl App {
                         ui.close_menu();
                     }
                 });
-                if ui.add(egui::Button::new(egui::RichText::new("Aide").color(C::TEXT2)).frame(false)).clicked() {
+                if ui.add(egui::Button::new(egui::RichText::new("Aide").color(C::TEXT2())).frame(false)).clicked() {
                     self.help = !self.help;
                 }
                 ui.add_space(8.0);
@@ -583,8 +613,15 @@ impl App {
                     self.start_play(Some(l));
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let light = theme::C::LIGHT.load(std::sync::atomic::Ordering::Relaxed);
+                    if ui.add(egui::Button::new(if light { "☾" } else { "☀" }).frame(false)).on_hover_text(if light { "Passer au thème sombre" } else { "Passer au thème clair" }).clicked() {
+                        theme::set_light(ui.ctx(), !light);
+                        let mut p = load_prefs();
+                        p["light"] = Json::Bool(!light);
+                        save_prefs(&p);
+                    }
                     let name = self.path.as_ref().and_then(|p| p.file_name()).map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "projet non enregistré".into());
-                    ui.label(egui::RichText::new(name).color(C::DIM));
+                    ui.label(egui::RichText::new(name).color(C::DIM()));
                 });
             });
         });
@@ -594,7 +631,7 @@ impl App {
     }
 
     fn tabs(&mut self, ui: &mut egui::Ui) {
-        egui::Frame::new().fill(C::BG1).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
+        egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
             ui.horizontal(|ui| {
                 let lname = self.layout().map(|l| l.s("name").to_string()).unwrap_or_default();
                 let sname = self.proj.arr("sheets").iter().find(|s| s.s("id") == self.cur_sheet).map(|s| s.s("name").to_string()).unwrap_or_default();
@@ -612,23 +649,23 @@ impl App {
         let mut open = true;
         let (dsz, msz) = theme::fit(ctx, 760.0, 640.0);
         egui::Window::new("Nouveau projet").open(&mut open).collapsible(false).resizable(false).default_width(dsz.x).max_size(msz).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
-            ui.label(egui::RichText::new("Choisissez un point de départ : chaque modèle est un jeu complet que vous pouvez modifier.").color(C::MUTED));
+            ui.label(egui::RichText::new("Choisissez un point de départ : chaque modèle est un jeu complet que vous pouvez modifier.").color(C::MUTED()));
             ui.add_space(8.0);
             egui::ScrollArea::vertical().max_height((msz.y - 110.0).min(520.0)).show(ui, |ui| {
                 let two = msz.x > 740.0;
                 egui::Grid::new("tpls").num_columns(if two { 2 } else { 1 }).spacing([10.0, 10.0]).show(ui, |ui| {
                     for (k, t) in tpl::LIST.iter().enumerate() {
-                        let r = egui::Frame::new().fill(C::BG2).corner_radius(10.0).stroke(egui::Stroke::new(1.0, C::LINE2)).inner_margin(12.0).show(ui, |ui| {
+                        let r = egui::Frame::new().fill(C::BG2()).corner_radius(10.0).stroke(egui::Stroke::new(1.0, C::LINE2())).inner_margin(12.0).show(ui, |ui| {
                             ui.vertical(|ui| {
                                 ui.set_width(340.0);
                                 ui.set_height(58.0);
-                                ui.label(egui::RichText::new(t.1).strong().size(15.0).color(C::TEXT));
-                                ui.add(egui::Label::new(egui::RichText::new(t.2).color(C::MUTED)).wrap());
+                                ui.label(egui::RichText::new(t.1).strong().size(15.0).color(C::TEXT()));
+                                ui.add(egui::Label::new(egui::RichText::new(t.2).color(C::MUTED())).wrap());
                             });
                         });
                         let resp = r.response.interact(egui::Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand);
                         if resp.hovered() {
-                            ui.painter().rect_stroke(resp.rect, 10.0, egui::Stroke::new(1.5, C::ACCENT), egui::StrokeKind::Inside);
+                            ui.painter().rect_stroke(resp.rect, 10.0, egui::Stroke::new(1.5, C::ACCENT()), egui::StrokeKind::Inside);
                         }
                         if resp.clicked() {
                             if self.dirty {
@@ -669,8 +706,8 @@ impl App {
         }
         egui::Area::new(egui::Id::new("toasts")).anchor(egui::Align2::CENTER_BOTTOM, [0.0, -24.0]).show(ctx, |ui| {
             for t in &self.toasts {
-                egui::Frame::new().fill(if t.err { egui::Color32::from_rgb(90, 30, 36) } else { C::BG3 }).corner_radius(8.0).inner_margin(egui::Margin::symmetric(14, 8)).stroke(egui::Stroke::new(1.0, if t.err { C::DANGER } else { C::LINE2 })).show(ui, |ui| {
-                    ui.label(egui::RichText::new(&t.text).color(C::TEXT));
+                egui::Frame::new().fill(if t.err { egui::Color32::from_rgb(90, 30, 36) } else { C::BG3() }).corner_radius(8.0).inner_margin(egui::Margin::symmetric(14, 8)).stroke(egui::Stroke::new(1.0, if t.err { C::DANGER() } else { C::LINE2() })).show(ui, |ui| {
+                    ui.label(egui::RichText::new(&t.text).color(C::TEXT()));
                 });
             }
         });
@@ -731,7 +768,7 @@ impl App {
         p.last = std::time::Instant::now();
         p.rt.frame(dt);
         if p.show_dbg {
-            egui::SidePanel::right("dbg").default_width(300.0).frame(egui::Frame::new().fill(C::BG1).inner_margin(10.0)).show(ctx, |ui| {
+            egui::SidePanel::right("dbg").default_width(300.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(10.0)).show(ctx, |ui| {
                 props::debugger(ui, p);
             });
         }
@@ -785,7 +822,7 @@ impl App {
             });
             if !p.rt.errors.is_empty() {
                 let txt = format!("Erreur d’expression : {}", p.rt.errors.last().unwrap());
-                ui.painter().text(rect.left_bottom() + egui::vec2(8.0, -8.0), egui::Align2::LEFT_BOTTOM, txt, egui::FontId::proportional(13.0), C::DANGER);
+                ui.painter().text(rect.left_bottom() + egui::vec2(8.0, -8.0), egui::Align2::LEFT_BOTTOM, txt, egui::FontId::proportional(13.0), C::DANGER());
             }
         });
         p.rt.host.tick();
@@ -800,14 +837,24 @@ fn main() -> eframe::Result<()> {
     eframe::run_native("PlatForge Studio", opts, Box::new(|cc| Ok(Box::new(App::new(cc)))))
 }
 
+fn load_prefs() -> Json {
+    std::fs::read_to_string(audio::data_dir().join("editor.json")).ok().and_then(|s| serde_json::from_str::<Json>(&s).ok()).filter(|v| v.is_object()).unwrap_or_else(|| serde_json::json!({}))
+}
+
+fn save_prefs(p: &Json) {
+    let d = audio::data_dir();
+    let _ = std::fs::create_dir_all(&d);
+    let _ = std::fs::write(d.join("editor.json"), serde_json::to_string_pretty(p).unwrap_or_default());
+}
+
 fn help_window(app: &mut App, ctx: &egui::Context) {
     let mut open = true;
     let (dsz, msz) = theme::fit(ctx, 620.0, 620.0);
     egui::Window::new("Aide").open(&mut open).default_size(dsz).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
         let sec = |ui: &mut egui::Ui, t: &str, lines: &[&str]| {
-            ui.label(egui::RichText::new(t).strong().size(15.0).color(C::ACCENT));
+            ui.label(egui::RichText::new(t).strong().size(15.0).color(C::ACCENT()));
             for l in lines {
-                ui.label(egui::RichText::new(format!("•  {}", l)).color(C::TEXT2));
+                ui.label(egui::RichText::new(format!("•  {}", l)).color(C::TEXT2()));
             }
             ui.add_space(8.0);
         };

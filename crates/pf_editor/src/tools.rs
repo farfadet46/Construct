@@ -207,7 +207,7 @@ pub fn overlay(app: &App, painter: &egui::Painter) {
                 if c >= 0.0 && r >= 0.0 && (c as i64) < cols && (r as i64) < rows {
                     let a = app.view.to_screen(ix + c * cw, iy + r * ch);
                     let b = app.view.to_screen(ix + (c + 1.0) * cw, iy + (r + 1.0) * ch);
-                    painter.rect_stroke(egui::Rect::from_min_max(a, b), 0.0, egui::Stroke::new(2.0, C::ACCENT), egui::StrokeKind::Inside);
+                    painter.rect_stroke(egui::Rect::from_min_max(a, b), 0.0, egui::Stroke::new(2.0, C::ACCENT()), egui::StrokeKind::Inside);
                 }
             }
         }
@@ -218,7 +218,7 @@ pub fn overlay(app: &App, painter: &egui::Painter) {
             pts.push(app.view.to_screen(ix + q[0].as_f64().unwrap_or(0.0), iy + q[1].as_f64().unwrap_or(0.0)));
         }
         let active = app.view.tool == Tool::Path;
-        let col = if active { C::ACCENT } else { egui::Color32::from_rgba_unmultiplied(255, 138, 61, 110) };
+        let col = if active { C::ACCENT() } else { egui::Color32::from_rgba_unmultiplied(255, 138, 61, 110) };
         let mode = o.arr("behaviors").iter().find(|b| b.s("type") == "path").and_then(|b| b.get("props")).map(|p| p.s("mode").to_string()).unwrap_or_default();
         for w in pts.windows(2) {
             painter.line_segment([w[0], w[1]], egui::Stroke::new(2.0, col));
@@ -227,17 +227,17 @@ pub fn overlay(app: &App, painter: &egui::Painter) {
             painter.add(egui::Shape::dashed_line(&[*pts.last().unwrap(), pts[0]], egui::Stroke::new(1.5, col), 6.0, 4.0));
         }
         for (k, p) in pts.iter().enumerate() {
-            painter.circle(*p, if k == 0 { 4.0 } else { 6.0 }, if k == 0 { C::BG0 } else { col }, egui::Stroke::new(1.5, egui::Color32::WHITE));
+            painter.circle(*p, if k == 0 { 4.0 } else { 6.0 }, if k == 0 { C::BG0() } else { col }, egui::Stroke::new(1.5, egui::Color32::WHITE));
             if k > 0 && active {
                 painter.text(*p + egui::vec2(8.0, -8.0), egui::Align2::LEFT_BOTTOM, k.to_string(), egui::FontId::proportional(11.0), egui::Color32::WHITE);
             }
         }
         if active {
-            painter.text(app.view.rect.left_bottom() + egui::vec2(10.0, -10.0), egui::Align2::LEFT_BOTTOM, "Clic : ajouter un point · glisser : déplacer · clic droit : supprimer", egui::FontId::proportional(13.0), C::ACCENT_H);
+            painter.text(app.view.rect.left_bottom() + egui::vec2(10.0, -10.0), egui::Align2::LEFT_BOTTOM, "Clic : ajouter un point · glisser : déplacer · clic droit : supprimer", egui::FontId::proportional(13.0), C::ACCENT_H());
         }
     }
     if o.s("kind") == "tilemap" && app.view.tool == Tool::Paint {
-        painter.text(app.view.rect.left_bottom() + egui::vec2(10.0, -10.0), egui::Align2::LEFT_BOTTOM, "Clic : peindre · clic droit : effacer · choisissez la tuile dans le panneau de droite", egui::FontId::proportional(13.0), C::ACCENT_H);
+        painter.text(app.view.rect.left_bottom() + egui::vec2(10.0, -10.0), egui::Align2::LEFT_BOTTOM, "Clic : peindre · clic droit : effacer · choisissez la tuile dans le panneau de droite", egui::FontId::proportional(13.0), C::ACCENT_H());
     }
 }
 
@@ -253,9 +253,9 @@ pub fn palette(app: &mut App, ui: &mut egui::Ui, inst_id: &str) {
     let mut nc = cols;
     let mut nr = rows;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Colonnes").color(C::MUTED));
+        ui.label(egui::RichText::new("Colonnes").color(C::MUTED()));
         ui.add(egui::DragValue::new(&mut nc).range(1..=1000));
-        ui.label(egui::RichText::new("Lignes").color(C::MUTED));
+        ui.label(egui::RichText::new("Lignes").color(C::MUTED()));
         ui.add(egui::DragValue::new(&mut nr).range(1..=1000));
     });
     if nc != cols || nr != rows {
@@ -305,17 +305,17 @@ pub fn palette(app: &mut App, ui: &mut egui::Ui, inst_id: &str) {
         }
     };
     let cell = 34.0f32;
-    ui.label(egui::RichText::new("Tuile à peindre (clic droit dans le niveau : effacer)").size(11.0).color(C::DIM));
+    ui.label(egui::RichText::new("Tuile à peindre (clic droit dans le niveau : effacer)").size(11.0).color(C::DIM()));
     egui::Grid::new("tiles").spacing([3.0, 3.0]).show(ui, |ui| {
         for r in 0..tr {
             for c in 0..tc {
                 let v = r * tc + c;
                 let (rect, resp) = ui.allocate_exact_size(egui::vec2(cell, cell), egui::Sense::click());
                 let uv = egui::Rect::from_min_max(egui::pos2((c as f64 * tw / pm.width() as f64) as f32, (r as f64 * th / pm.height() as f64) as f32), egui::pos2(((c + 1) as f64 * tw / pm.width() as f64) as f32, ((r + 1) as f64 * th / pm.height() as f64) as f32));
-                ui.painter().rect_filled(rect, 3.0, C::BG0);
+                ui.painter().rect_filled(rect, 3.0, C::BG0());
                 ui.painter().image(tex.id(), rect.shrink(2.0), uv, egui::Color32::WHITE);
                 if v == app.view.tile {
-                    ui.painter().rect_stroke(rect, 3.0, egui::Stroke::new(2.0, C::ACCENT), egui::StrokeKind::Inside);
+                    ui.painter().rect_stroke(rect, 3.0, egui::Stroke::new(2.0, C::ACCENT()), egui::StrokeKind::Inside);
                 }
                 if resp.clicked() {
                     app.view.tile = v;
@@ -329,7 +329,7 @@ pub fn palette(app: &mut App, ui: &mut egui::Ui, inst_id: &str) {
     let types = pf_core::catalog::catalog()["TILETYPES"].as_array().cloned().unwrap_or_default();
     let cur = o.get("tcol").and_then(|t| t.get(app.view.tile.to_string())).and_then(|v| v.as_str()).unwrap_or("s").to_string();
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(format!("Tuile n°{} :", app.view.tile)).color(C::MUTED));
+        ui.label(egui::RichText::new(format!("Tuile n°{} :", app.view.tile)).color(C::MUTED()));
         let lab = types.iter().find(|t| t[0].as_str() == Some(&cur)).and_then(|t| t[1].as_str()).unwrap_or(&cur).to_string();
         egui::ComboBox::from_id_salt("tcol").selected_text(lab).show_ui(ui, |ui| {
             for t in &types {
@@ -359,7 +359,7 @@ pub fn path_panel(app: &mut App, ui: &mut egui::Ui, inst_id: &str) {
     };
     theme::section(ui, "Trajectoire");
     let n = i.arr("path").len();
-    ui.label(egui::RichText::new(format!("{} point(s) en plus du départ", n)).color(C::MUTED));
+    ui.label(egui::RichText::new(format!("{} point(s) en plus du départ", n)).color(C::MUTED()));
     ui.horizontal(|ui| {
         if ui.add(if app.view.tool == Tool::Path { theme::btn("Terminer") } else { theme::btn_accent("〰 Modifier la trajectoire") }).clicked() {
             app.view.tool = if app.view.tool == Tool::Path { Tool::Select } else { Tool::Path };

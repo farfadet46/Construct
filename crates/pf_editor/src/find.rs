@@ -163,7 +163,7 @@ pub fn window(app: &mut App, ctx: &egui::Context) {
     let (dsz, msz) = theme::fit(ctx, 560.0, 560.0);
     egui::Window::new("Rechercher / remplacer").id(egui::Id::new("find")).open(&mut open).default_size(dsz).max_size(msz).constrain(true).show(ctx, |ui| {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Rechercher").color(C::MUTED));
+            ui.label(RichText::new("Rechercher").color(C::MUTED()));
             let r = ui.add(egui::TextEdit::singleline(&mut st.q).desired_width(240.0).hint_text("nom, variable, texte, expression…"));
             if r.gained_focus() || st.q.is_empty() {
                 r.request_focus();
@@ -171,16 +171,16 @@ pub fn window(app: &mut App, ctx: &egui::Context) {
             ui.checkbox(&mut st.case, "Respecter la casse");
         });
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Remplacer par").color(C::MUTED));
+            ui.label(RichText::new("Remplacer par").color(C::MUTED()));
             ui.add(egui::TextEdit::singleline(&mut st.r).desired_width(200.0));
             if ui.add_enabled(!st.q.is_empty(), theme::btn("Remplacer tout")).on_hover_text("Dans les conditions, actions, commentaires et textes des instances").clicked() {
                 do_rep = true;
             }
         });
-        ui.label(RichText::new("Pour renommer un objet ou une variable sans rien casser, modifiez plutôt son nom dans le panneau Propriétés : toutes les expressions sont mises à jour.").size(11.0).color(C::DIM));
+        ui.label(RichText::new("Pour renommer un objet ou une variable sans rien casser, modifiez plutôt son nom dans le panneau Propriétés : toutes les expressions sont mises à jour.").size(11.0).color(C::DIM()));
         ui.separator();
         let hits = search(app, &st.q, st.case);
-        ui.label(RichText::new(format!("{} résultat(s)", hits.len())).color(C::MUTED));
+        ui.label(RichText::new(format!("{} résultat(s)", hits.len())).color(C::MUTED()));
         egui::ScrollArea::vertical().max_height((ui.available_height() - 8.0).max(120.0)).show(ui, |ui| {
             for h in hits {
                 let (tag, txt) = match &h {
@@ -189,7 +189,7 @@ pub fn window(app: &mut App, ctx: &egui::Context) {
                     Hit::Global { name } => ("Variable".to_string(), name.clone()),
                     Hit::Inst { txt, .. } => ("Instance".to_string(), txt.clone()),
                 };
-                let r = ui.add(egui::Button::new(RichText::new(format!("{}   {}", tag, txt)).color(C::TEXT2)).frame(false));
+                let r = ui.add(egui::Button::new(RichText::new(format!("{}   {}", tag, txt)).color(C::TEXT2())).frame(false));
                 if r.clicked() {
                     goto = Some(h);
                 }
