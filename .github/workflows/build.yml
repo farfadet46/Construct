@@ -49,7 +49,7 @@ jobs:
       - name: Outils
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y curl git build-essential pkg-config libasound2-dev libxkbcommon-dev
+          DEBIAN_FRONTEND=noninteractive apt-get install -y curl git build-essential pkg-config libasound2-dev libxkbcommon-dev libudev-dev
           curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - uses: actions/checkout@v4
