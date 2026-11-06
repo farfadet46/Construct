@@ -1,8 +1,8 @@
 # PlatForge Studio — version native (Rust)
 
 Éditeur de jeux 2D façon Construct, réécrit en Rust : une vraie application de bureau
-(Windows, macOS, Linux), sans navigateur. Les projets sont **les mêmes fichiers `.json`**
-que la version HTML : on peut passer de l'une à l'autre.
+(Windows, macOS, Linux). Les projets sont **les mêmes fichiers `.json`**
+que l'ancienn version HTML : on peut passer de l'une à l'autre.
 
 ## Lancer
 
