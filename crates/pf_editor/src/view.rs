@@ -30,13 +30,19 @@ pub struct ViewState {
     pub fit_frames: u32,
     pub tool: crate::tools::Tool,
     pub tile: i64,
-    pub fill: bool,
+    /// mode de peinture des tuiles : 0 pinceau, 1 rectangle, 2 remplir, 3 terrain 3×3
+    pub tmode: u8,
+    /// tampon choisi dans la palette (colonnes × lignes de tuiles)
+    pub stamp: (i64, i64),
+    pub pal_anchor: Option<(i64, i64)>,
+    pub trect: Option<((i64, i64), bool)>,
+    pub tlast: Option<(i64, i64)>,
     pub tdrag: Option<usize>,
     pub painting: bool,
 }
 impl Default for ViewState {
     fn default() -> Self {
-        ViewState { cam: (0.0, 0.0), zoom: 1.0, tex: None, dirty: true, fit_pending: true, key: Default::default(), drag: None, grid: true, snap: true, grid_size: 16.0, active_layer: None, hidden: HashSet::new(), locked: HashSet::new(), rect: egui::Rect::NOTHING, g: None, fit_frames: 0, tool: crate::tools::Tool::Select, tile: 0, fill: false, tdrag: None, painting: false }
+        ViewState { cam: (0.0, 0.0), zoom: 1.0, tex: None, dirty: true, fit_pending: true, key: Default::default(), drag: None, grid: true, snap: true, grid_size: 16.0, active_layer: None, hidden: HashSet::new(), locked: HashSet::new(), rect: egui::Rect::NOTHING, g: None, fit_frames: 0, tool: crate::tools::Tool::Select, tile: 0, tmode: 0, stamp: (1, 1), pal_anchor: None, trect: None, tlast: None, tdrag: None, painting: false }
     }
 }
 
@@ -411,7 +417,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                 }
                 (dx, dy, i.modifiers.shift)
             });
-            if (dx != 0.0 || dy != 0.0) && !ui.ctx().wants_keyboard_input() {
+            if (dx != 0.0 || dy != 0.0) && !crate::util::typing(ui.ctx()) {
                 let k = if big { app.view.grid_size } else { 1.0 };
                 app.snapshot();
                 if let Some(i) = app.inst_mut(&id) {
@@ -447,16 +453,16 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     if let Some(l) = app.layout() {
         let (gw, gh) = app.proj.get("settings").map(|s| (s.f("width", 854.0), s.f("height", 480.0))).unwrap_or((854.0, 480.0));
         let r = egui::Rect::from_min_max(app.view.to_screen(0.0, 0.0), app.view.to_screen(gw, gh));
-        painter.rect_stroke(r, 0.0, egui::Stroke::new(1.0, egui::Color32::from_rgba_unmultiplied(255, 216, 77, 120)), egui::StrokeKind::Middle);
+        painter.rect_stroke(r, 0.0, egui::Stroke::new(1.0_f32, egui::Color32::from_rgba_unmultiplied(255, 216, 77, 120)), egui::StrokeKind::Middle);
         let lr = egui::Rect::from_min_max(app.view.to_screen(0.0, 0.0), app.view.to_screen(l.f("w", 0.0), l.f("h", 0.0)));
-        painter.rect_stroke(lr, 0.0, egui::Stroke::new(1.0, C::LINE3()), egui::StrokeKind::Outside);
+        painter.rect_stroke(lr, 0.0, egui::Stroke::new(1.0_f32, C::LINE3()), egui::StrokeKind::Outside);
     }
     // sélection
     if let Sel::Inst(id) = &app.sel {
         if let Some(i) = app.find_inst(id) {
             if let Some(b) = inst_box(app, i) {
                 let r = egui::Rect::from_min_max(app.view.to_screen(b.l.min(b.r), b.t), app.view.to_screen(b.l.max(b.r), b.b));
-                painter.rect_stroke(r, 0.0, egui::Stroke::new(1.5, C::ACCENT()), egui::StrokeKind::Outside);
+                painter.rect_stroke(r, 0.0, egui::Stroke::new(1.5_f32, C::ACCENT()), egui::StrokeKind::Outside);
                 let hp = app.view.to_screen(b.l.max(b.r), b.b);
                 painter.rect_filled(egui::Rect::from_center_size(hp, egui::vec2(9.0, 9.0)), 2.0, C::ACCENT());
                 let name = app.obj_name(i.s("obj"));
@@ -472,7 +478,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             if app.sel != Sel::Inst(id.clone()) {
                 if let Some(b) = app.find_inst(&id).and_then(|i| inst_box(app, i)) {
                     let r = egui::Rect::from_min_max(app.view.to_screen(b.l.min(b.r), b.t), app.view.to_screen(b.l.max(b.r), b.b));
-                    painter.rect_stroke(r, 0.0, egui::Stroke::new(1.0, egui::Color32::from_rgba_unmultiplied(255, 255, 255, 90)), egui::StrokeKind::Outside);
+                    painter.rect_stroke(r, 0.0, egui::Stroke::new(1.0_f32, egui::Color32::from_rgba_unmultiplied(255, 255, 255, 90)), egui::StrokeKind::Outside);
                 }
             }
         }

@@ -19,7 +19,7 @@ pub const KINDS: [(&str, &str, &str); 13] = [
     ("bar", "Barre", "▬"),
     ("particles", "Particules", "✦"),
     ("leaderboard", "Classement", "☰"),
-    ("road3d", "Route 3D", "⛰"),
+    ("road3d", "Route 3D", "◢"),
     ("minimap", "Mini-carte", "◎"),
     ("array", "Tableau", "[ ]"),
     ("dict", "Dictionnaire", "{ }"),
@@ -179,7 +179,7 @@ pub fn add_instance(app: &mut App, oid: &str, x: f64, y: f64) {
 }
 
 pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
-    egui::SidePanel::left("tree").default_width(250.0).min_width(200.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0, C::LINE()))).show(ctx, |ui| {
+    egui::SidePanel::left("tree").default_width(250.0).min_width(200.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0_f32, C::LINE()))).show(ctx, |ui| {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             // ---- niveaux
             ui.horizontal(|ui| {
@@ -313,8 +313,11 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                 if resp.double_clicked() && o.s("kind") == "sprite" {
                     app.sprite = Some(crate::sprite::SpriteEd::open(&o));
                 }
+                if resp.double_clicked() && o.s("kind") == "particles" {
+                    app.part_ed = crate::particles::PartEd::open(app, &id);
+                }
                 let n_inst = app.layout().map(|l| l.arr("instances").iter().filter(|i| i.s("obj") == id).count()).unwrap_or(0);
-                let resp = resp.on_hover_text(format!("{} — {} instance(s) dans ce niveau\nGlissez-le dans le niveau pour en placer une.{}", kind_name(o.s("kind")), n_inst, if o.s("kind") == "sprite" { "\nDouble-clic : éditeur de sprites." } else { "" }));
+                let resp = resp.on_hover_text(format!("{} — {} instance(s) dans ce niveau\nGlissez-le dans le niveau pour en placer une.{}", kind_name(o.s("kind")), n_inst, match o.s("kind") { "sprite" => "\nDouble-clic : éditeur de sprites.", "particles" => "\nDouble-clic : éditeur de particules.", _ => "" }));
                 resp.context_menu(|ui| {
                     if ui.button("Placer au centre de la vue").clicked() {
                         let c = app.view.center_world();
@@ -366,6 +369,9 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
             ui.horizontal(|ui| {
                 theme::section(ui, "Sons");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.add(theme::btn_small("☰")).on_hover_text("Bibliothèque de sons : écouter, rogner, importer plusieurs fichiers…").clicked() {
+                        app.snd_lib = Some(Default::default());
+                    }
                     if ui.add(theme::btn_small("✦")).on_hover_text("Créer un effet sonore (générateur)").clicked() {
                         app.sfx_ed = Some(crate::more::SfxEd::new(app, None));
                     }

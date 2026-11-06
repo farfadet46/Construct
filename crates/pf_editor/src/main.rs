@@ -11,8 +11,10 @@ mod export;
 mod find;
 mod history;
 mod more;
+mod particles;
 mod tools;
 mod tpl;
+mod sounds;
 mod sprite;
 mod tree;
 mod util;
@@ -109,6 +111,8 @@ pub struct App {
     pub tree: tree::TreeState,
     pub confirm_new: Option<String>,
     pub sprite: Option<sprite::SpriteEd>,
+    pub part_ed: Option<particles::PartEd>,
+    pub snd_lib: Option<sounds::SndLib>,
     pub preview: Option<more::Preview>,
     pub cine_ed: Option<String>,
     pub sfx_ed: Option<more::SfxEd>,
@@ -163,6 +167,8 @@ impl App {
             find: None,
             export: None,
             help: false,
+            part_ed: None,
+            snd_lib: None,
             show_hist: false,
             hist: Default::default(),
             undo_t: Vec::new(),
@@ -184,6 +190,14 @@ impl App {
         }
         if std::env::var("PF_TAB").map(|v| v == "events").unwrap_or(false) {
             app.tab = Tab::Events;
+        }
+        if std::env::var("PF_SOUNDS").is_ok() {
+            app.snd_lib = Some(Default::default());
+        }
+        if let Ok(o) = std::env::var("PF_PARTS") {
+            if let Some(id) = app.proj.arr("objects").iter().find(|x| x.s("name") == o).map(|x| x.s("id").to_string()) {
+                app.part_ed = particles::PartEd::open(&app, &id);
+            }
         }
         if let Ok(o) = std::env::var("PF_SPRITE") {
             if let Some(ob) = app.proj.arr("objects").iter().find(|x| x.s("name") == o) {
@@ -432,7 +446,7 @@ impl eframe::App for App {
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
 
         // raccourcis globaux
-        if self.play.is_none() && !ctx.wants_keyboard_input() {
+        if self.play.is_none() && self.sprite.is_none() && !crate::util::typing(ctx) {
             let (z, y, s, f5, del, dup) = ctx.input(|i| (i.modifiers.command && i.key_pressed(egui::Key::Z) && !i.modifiers.shift, i.modifiers.command && (i.key_pressed(egui::Key::Y) || (i.modifiers.shift && i.key_pressed(egui::Key::Z))), i.modifiers.command && i.key_pressed(egui::Key::S), i.key_pressed(egui::Key::F5), i.key_pressed(egui::Key::Delete), i.modifiers.command && i.key_pressed(egui::Key::D)));
             if z {
                 self.do_undo();
@@ -479,6 +493,8 @@ impl eframe::App for App {
                 sprite::window(self, ctx, now);
             }
             more::cine_window(self, ctx, now);
+            particles::window(self, ctx, now);
+            sounds::window(self, ctx, now);
             more::sfx_window(self, ctx, now);
             more::track_window(self, ctx);
             find::window(self, ctx);
@@ -518,7 +534,7 @@ impl eframe::App for App {
 
 impl App {
     fn top_bar(&mut self, ctx: &egui::Context, now: f64) {
-        egui::TopBottomPanel::top("top").exact_height(46.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 6)).stroke(egui::Stroke::new(1.0, C::LINE()))).show(ctx, |ui| {
+        egui::TopBottomPanel::top("top").exact_height(46.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 6)).stroke(egui::Stroke::new(1.0_f32, C::LINE()))).show(ctx, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.label(egui::RichText::new("◆").color(C::ACCENT()).size(20.0));
                 ui.label(egui::RichText::new("PlatForge").strong().size(16.0).color(C::TEXT()));
@@ -655,7 +671,7 @@ impl App {
                 let two = msz.x > 740.0;
                 egui::Grid::new("tpls").num_columns(if two { 2 } else { 1 }).spacing([10.0, 10.0]).show(ui, |ui| {
                     for (k, t) in tpl::LIST.iter().enumerate() {
-                        let r = egui::Frame::new().fill(C::BG2()).corner_radius(10.0).stroke(egui::Stroke::new(1.0, C::LINE2())).inner_margin(12.0).show(ui, |ui| {
+                        let r = egui::Frame::new().fill(C::BG2()).corner_radius(10.0).stroke(egui::Stroke::new(1.0_f32, C::LINE2())).inner_margin(12.0).show(ui, |ui| {
                             ui.vertical(|ui| {
                                 ui.set_width(340.0);
                                 ui.set_height(58.0);
@@ -665,7 +681,7 @@ impl App {
                         });
                         let resp = r.response.interact(egui::Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand);
                         if resp.hovered() {
-                            ui.painter().rect_stroke(resp.rect, 10.0, egui::Stroke::new(1.5, C::ACCENT()), egui::StrokeKind::Inside);
+                            ui.painter().rect_stroke(resp.rect, 10.0, egui::Stroke::new(1.5_f32, C::ACCENT()), egui::StrokeKind::Inside);
                         }
                         if resp.clicked() {
                             if self.dirty {
@@ -706,7 +722,7 @@ impl App {
         }
         egui::Area::new(egui::Id::new("toasts")).anchor(egui::Align2::CENTER_BOTTOM, [0.0, -24.0]).show(ctx, |ui| {
             for t in &self.toasts {
-                egui::Frame::new().fill(if t.err { egui::Color32::from_rgb(90, 30, 36) } else { C::BG3() }).corner_radius(8.0).inner_margin(egui::Margin::symmetric(14, 8)).stroke(egui::Stroke::new(1.0, if t.err { C::DANGER() } else { C::LINE2() })).show(ui, |ui| {
+                egui::Frame::new().fill(if t.err { egui::Color32::from_rgb(90, 30, 36) } else { C::BG3() }).corner_radius(8.0).inner_margin(egui::Margin::symmetric(14, 8)).stroke(egui::Stroke::new(1.0_f32, if t.err { C::DANGER() } else { C::LINE2() })).show(ui, |ui| {
                     ui.label(egui::RichText::new(&t.text).color(C::TEXT()));
                 });
             }
@@ -880,14 +896,18 @@ fn help_window(app: &mut App, ctx: &egui::Context) {
             "Ctrl+C / Ctrl+V copient et collent des événements, même entre feuilles. « ● Point d’arrêt » met le test en pause.",
         ]);
         sec(ui, "Les éditeurs", &[
-            "Sprite : double-clic sur l’objet. B crayon, E gomme, G remplir, I pipette, L ligne, R rectangle,",
-            "O origine, C boîte de collision, P polygone, N points d’image, Ctrl+Z annuler.",
-            "Sons : ✦ crée un effet sonore, + importe un fichier (wav, mp3, ogg).",
+            "Sprite : double-clic sur l’objet. S sélection, B crayon, E gomme, G remplir, I pipette, L ligne, R rectangle,",
+            "U ellipse, O origine, C boîte de collision, P polygone, N points d’image, Ctrl+Z annuler.",
+            "Sprite, sélection : glisser dedans pour la déplacer (Alt : copie), Ctrl+C / X / V (aussi d’un sprite à l’autre), flèches, Suppr.",
+            "Sprite : « Plein » pour les formes pleines, « Sym. » pour dessiner en miroir, « Transformer » pour retourner, tourner, contourer…",
+            "Tuiles : pinceau, rectangle, remplissage ou terrain automatique ; glisser dans la palette = tampon de plusieurs tuiles ; Alt+clic = pipette.",
+            "Particules : double-clic sur l’objet pour l’éditeur avec aperçu en direct.",
+            "Sons : ☰ ouvre la bibliothèque (écoute, rognage, volume, fondus, import multiple), ✦ crée un effet sonore.",
             "Cinématiques : + dans la rubrique Cinématiques ; jouez-les avec l’action « Jouer une cinématique ».",
             "Route 3D : « Éditeur visuel de la piste » dans ses propriétés.",
         ]);
         sec(ui, "Raccourcis", &[
-            "Ctrl+S enregistrer · Ctrl+O ouvrir · Ctrl+Z / Ctrl+Y annuler / rétablir · Ctrl+F rechercher · F5 tester.",
+            "Ctrl+S enregistrer · Ctrl+O ouvrir · Ctrl+Z / Ctrl+Y annuler / rétablir · Ctrl+H historique · Ctrl+F rechercher · F5 tester.",
             "Pendant le jeu : M coupe le son.",
         ]);
         sec(ui, "Publier", &[

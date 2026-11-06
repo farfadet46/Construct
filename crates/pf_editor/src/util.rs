@@ -23,3 +23,12 @@ pub fn slug(s: &str) -> String {
         o
     }
 }
+
+/// vrai seulement si l'utilisateur tape dans un champ de texte
+/// (un bouton cliqué garde le focus clavier dans egui : il ne doit pas bloquer les raccourcis)
+pub fn typing(ctx: &eframe::egui::Context) -> bool {
+    match ctx.memory(|m| m.focused()) {
+        Some(id) => eframe::egui::text_edit::TextEditState::load(ctx, id).is_some(),
+        None => false,
+    }
+}

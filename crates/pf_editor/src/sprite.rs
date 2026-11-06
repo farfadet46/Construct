@@ -18,6 +18,118 @@ pub enum STool {
     BoxCol,
     Poly,
     Point,
+    Select,
+    Ellipse,
+}
+
+/// presse-papiers d'images (partagé entre les sprites)
+static CLIP: std::sync::Mutex<Option<(Vec<u8>, u32, u32)>> = std::sync::Mutex::new(None);
+
+// ---- opérations sur une zone [x, y, l, h] d'une image
+fn clamp_r(r: [i32; 4], w: u32, h: u32) -> [i32; 4] {
+    let x0 = r[0].clamp(0, w as i32);
+    let y0 = r[1].clamp(0, h as i32);
+    let x1 = (r[0] + r[2]).clamp(0, w as i32);
+    let y1 = (r[1] + r[3]).clamp(0, h as i32);
+    [x0, y0, (x1 - x0).max(0), (y1 - y0).max(0)]
+}
+fn copy_region(px: &[u8], fw: u32, r: [i32; 4]) -> Vec<u8> {
+    let mut out = vec![0u8; (r[2] * r[3] * 4) as usize];
+    for y in 0..r[3] {
+        for x in 0..r[2] {
+            let k0 = (((r[1] + y) * fw as i32 + r[0] + x) * 4) as usize;
+            let k1 = ((y * r[2] + x) * 4) as usize;
+            out[k1..k1 + 4].copy_from_slice(&px[k0..k0 + 4]);
+        }
+    }
+    out
+}
+fn clear_region(px: &mut [u8], fw: u32, r: [i32; 4]) {
+    for y in 0..r[3] {
+        for x in 0..r[2] {
+            let k = (((r[1] + y) * fw as i32 + r[0] + x) * 4) as usize;
+            px[k..k + 4].fill(0);
+        }
+    }
+}
+/// colle `buf` (bw × bh) en (x, y) ; `opaque` : ignore les pixels transparents
+fn stamp(px: &mut [u8], fw: u32, fh: u32, buf: &[u8], bw: i32, bh: i32, x: i32, y: i32, opaque: bool) {
+    for yy in 0..bh {
+        for xx in 0..bw {
+            let (tx, ty) = (x + xx, y + yy);
+            if tx < 0 || ty < 0 || tx >= fw as i32 || ty >= fh as i32 {
+                continue;
+            }
+            let k1 = ((yy * bw + xx) * 4) as usize;
+            if opaque && buf[k1 + 3] == 0 {
+                continue;
+            }
+            let k0 = ((ty * fw as i32 + tx) * 4) as usize;
+            px[k0..k0 + 4].copy_from_slice(&buf[k1..k1 + 4]);
+        }
+    }
+}
+#[derive(Clone, Copy, PartialEq)]
+enum ROp {
+    FlipH,
+    FlipV,
+    Rot,
+    Shift(i32, i32),
+    Outline([u8; 4]),
+    Replace([u8; 4], [u8; 4]),
+    Clear,
+}
+fn region_op(px: &mut [u8], fw: u32, r: [i32; 4], op: ROp) {
+    let (w, h) = (r[2], r[3]);
+    if w <= 0 || h <= 0 {
+        return;
+    }
+    let src = copy_region(px, fw, r);
+    let at = |x: i32, y: i32| -> [u8; 4] {
+        let k = ((y * w + x) * 4) as usize;
+        [src[k], src[k + 1], src[k + 2], src[k + 3]]
+    };
+    let mut out = src.clone();
+    let mut put = |x: i32, y: i32, c: [u8; 4]| {
+        let k = ((y * w + x) * 4) as usize;
+        out[k..k + 4].copy_from_slice(&c);
+    };
+    for y in 0..h {
+        for x in 0..w {
+            match op {
+                ROp::FlipH => put(x, y, at(w - 1 - x, y)),
+                ROp::FlipV => put(x, y, at(x, h - 1 - y)),
+                ROp::Rot => {
+                    if w == h {
+                        put(x, y, at(y, w - 1 - x));
+                    }
+                }
+                ROp::Shift(dx, dy) => put(x, y, at((x - dx).rem_euclid(w), (y - dy).rem_euclid(h))),
+                ROp::Outline(c) => {
+                    if at(x, y)[3] == 0 {
+                        let n = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)].iter().any(|&(a, b)| a >= 0 && b >= 0 && a < w && b < h && at(a, b)[3] > 0 && at(a, b) != c);
+                        if n {
+                            put(x, y, c);
+                        }
+                    }
+                }
+                ROp::Replace(a, b) => {
+                    let p = at(x, y);
+                    if p == a || (a[3] == 0 && p[3] == 0) {
+                        put(x, y, b);
+                    }
+                }
+                ROp::Clear => put(x, y, [0, 0, 0, 0]),
+            }
+        }
+    }
+    stamp(px, fw, u32::MAX, &out, w, h, r[0], r[1], false);
+}
+fn png_bytes(px: &[u8], w: u32, h: u32) -> Vec<u8> {
+    let mut out = Vec::new();
+    use image::ImageEncoder;
+    let _ = image::codecs::png::PngEncoder::new(&mut out).write_image(px, w, h, image::ExtendedColorType::Rgba8);
+    out
 }
 
 #[derive(Clone)]
@@ -100,6 +212,22 @@ pub struct SpriteEd {
     pub points: Vec<String>,
     cur_pt: usize,
     pdrag: Option<usize>,
+    /// formes pleines (rectangle, ellipse)
+    pub filled: bool,
+    pub sym_x: bool,
+    pub sym_y: bool,
+    /// sélection [x, y, l, h]
+    sel: Option<[i32; 4]>,
+    /// pixels soulevés pendant un déplacement : (pixels, l, h, prise x, prise y)
+    lift: Option<(Vec<u8>, i32, i32, i32, i32)>,
+    /// appliquer les transformations à toutes les images de l'animation
+    all_frames: bool,
+    repl_from: Color32,
+    sheet_by_size: bool,
+    sheet_fw: u32,
+    sheet_fh: u32,
+    sheet_new: bool,
+    sheet_skip: bool,
 }
 
 const PAL: [u32; 24] = [
@@ -187,6 +315,18 @@ impl SpriteEd {
             points: o.arr("points").iter().map(|p| p.s("name").to_string()).filter(|n| !n.is_empty()).collect(),
             cur_pt: 0,
             pdrag: None,
+            filled: false,
+            sym_x: false,
+            sym_y: false,
+            sel: None,
+            lift: None,
+            all_frames: false,
+            repl_from: Color32::BLACK,
+            sheet_by_size: false,
+            sheet_fw: w,
+            sheet_fh: h,
+            sheet_new: false,
+            sheet_skip: true,
         }
     }
     fn px(&mut self) -> &mut Vec<u8> {
@@ -219,6 +359,100 @@ impl SpriteEd {
             }
         }
     }
+    /// dessine en tenant compte de la symétrie
+    fn plot(&mut self, x: i32, y: i32, c: [u8; 4]) {
+        let (w, h) = (self.w as i32, self.h as i32);
+        self.set(x, y, c);
+        if self.sym_x {
+            self.set(w - 1 - x, y, c);
+        }
+        if self.sym_y {
+            self.set(x, h - 1 - y, c);
+        }
+        if self.sym_x && self.sym_y {
+            self.set(w - 1 - x, h - 1 - y, c);
+        }
+    }
+    fn shape(&mut self, a: (i32, i32), b: (i32, i32), c: [u8; 4], ellipse: bool, filled: bool) {
+        let (x0, x1) = (a.0.min(b.0), a.0.max(b.0));
+        let (y0, y1) = (a.1.min(b.1), a.1.max(b.1));
+        if !ellipse && !filled {
+            self.line((x0, y0), (x1, y0), c);
+            self.line((x1, y0), (x1, y1), c);
+            self.line((x1, y1), (x0, y1), c);
+            self.line((x0, y1), (x0, y0), c);
+            return;
+        }
+        let (cx, cy) = ((x0 + x1 + 1) as f64 / 2.0, (y0 + y1 + 1) as f64 / 2.0);
+        let (rx, ry) = (((x1 - x0 + 1) as f64 / 2.0).max(0.5), ((y1 - y0 + 1) as f64 / 2.0).max(0.5));
+        let inside = |x: i32, y: i32| -> bool {
+            if x < x0 || x > x1 || y < y0 || y > y1 {
+                return false;
+            }
+            if !ellipse {
+                return true;
+            }
+            let (dx, dy) = ((x as f64 + 0.5 - cx) / rx, (y as f64 + 0.5 - cy) / ry);
+            dx * dx + dy * dy <= 1.0
+        };
+        let b0 = self.brush;
+        if filled {
+            self.brush = 1;
+        }
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                if !inside(x, y) {
+                    continue;
+                }
+                if filled || !(inside(x + 1, y) && inside(x - 1, y) && inside(x, y + 1) && inside(x, y - 1)) {
+                    self.plot(x, y, c);
+                }
+            }
+        }
+        self.brush = b0;
+    }
+    /// zone visée par les transformations : la sélection, sinon l'image entière
+    fn target(&self) -> [i32; 4] {
+        self.sel.map(|r| clamp_r(r, self.w, self.h)).unwrap_or([0, 0, self.w as i32, self.h as i32])
+    }
+    fn apply_op(&mut self, op: ROp) {
+        self.push_undo();
+        let r = self.target();
+        let fw = self.w;
+        let ca = self.ca;
+        if self.all_frames {
+            for f in self.anims[ca].frames.iter_mut() {
+                region_op(f, fw, r, op);
+            }
+        } else {
+            let cf = self.cf;
+            region_op(&mut self.anims[ca].frames[cf], fw, r, op);
+        }
+        self.touch();
+    }
+    fn copy_sel(&mut self, cut: bool) {
+        let r = self.target();
+        let buf = copy_region(&self.anims[self.ca].frames[self.cf], self.w, r);
+        *CLIP.lock().unwrap() = Some((buf, r[2] as u32, r[3] as u32));
+        if cut {
+            self.push_undo();
+            let fw = self.w;
+            clear_region(self.px(), fw, r);
+            self.touch();
+        }
+    }
+    fn paste(&mut self) {
+        let c = CLIP.lock().unwrap().clone();
+        if let Some((buf, bw, bh)) = c {
+            self.push_undo();
+            let (x, y) = self.sel.map(|r| (r[0], r[1])).unwrap_or((0, 0));
+            let (fw, fh) = (self.w, self.h);
+            stamp(self.px(), fw, fh, &buf, bw as i32, bh as i32, x, y, true);
+            self.sel = Some([x, y, bw as i32, bh as i32]);
+            self.tool = STool::Select;
+            self.touch();
+        }
+    }
     fn get(&self, x: i32, y: i32) -> [u8; 4] {
         let k = ((y * self.w as i32 + x) * 4) as usize;
         let p = &self.anims[self.ca].frames[self.cf];
@@ -230,7 +464,7 @@ impl SpriteEd {
         let (sx, sy) = (if x0 < b.0 { 1 } else { -1 }, if y0 < b.1 { 1 } else { -1 });
         let mut err = dx + dy;
         loop {
-            self.set(x0, y0, c);
+            self.plot(x0, y0, c);
             if x0 == b.0 && y0 == b.1 {
                 break;
             }
@@ -282,6 +516,7 @@ impl SpriteEd {
         }
         self.w = nw;
         self.h = nh;
+        self.sel = None;
         self.ox = self.ox.min(nw as f64);
         self.oy = self.oy.min(nh as f64);
         self.touch();
@@ -290,7 +525,13 @@ impl SpriteEd {
         let b = std::fs::read(path).map_err(|e| e.to_string())?;
         let im = image::load_from_memory(&b).map_err(|e| e.to_string())?.to_rgba8();
         self.push_undo();
-        let (cols, rows) = if sheet { (self.sheet_cols.max(1), self.sheet_rows.max(1)) } else { (1, 1) };
+        let (cols, rows) = if !sheet {
+            (1, 1)
+        } else if self.sheet_by_size {
+            ((im.width() / self.sheet_fw.max(1)).max(1), (im.height() / self.sheet_fh.max(1)).max(1))
+        } else {
+            (self.sheet_cols.max(1), self.sheet_rows.max(1))
+        };
         let (fw, fh) = (im.width() / cols, im.height() / rows);
         if fw != self.w || fh != self.h {
             self.resize(fw.max(1), fh.max(1));
@@ -314,7 +555,23 @@ impl SpriteEd {
                 frames.push(f);
             }
         }
-        if sheet {
+        if sheet && self.sheet_skip {
+            frames.retain(|f| f.chunks(4).any(|p| p[3] > 0));
+            if frames.is_empty() {
+                frames.push(vec![0u8; (fw * fh * 4) as usize]);
+            }
+        }
+        if sheet && self.sheet_new {
+            let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| format!("Anim{}", self.anims.len() + 1));
+            let mut a = AnimEd::new(name, frames.remove(0));
+            for f in frames {
+                a.frames.push(f);
+            }
+            a.fix();
+            self.anims.push(a);
+            self.ca = self.anims.len() - 1;
+            self.cf = 0;
+        } else if sheet {
             self.anims[self.ca].frames = frames;
             self.anims[self.ca].fix();
             self.cf = 0;
@@ -384,7 +641,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
     egui::Window::new(format!("Éditeur de sprites — {}", ed.name)).id(egui::Id::new("spred")).open(&mut open).default_size(dsz).max_size(msz).min_size([560.0, 360.0]).resizable(true).collapsible(false).constrain(true).show(ctx, |ui| {
         // ---- barre du haut
         ui.horizontal_wrapped(|ui| {
-            for (t, n, tip) in [(STool::Pencil, "✏ Crayon", "B"), (STool::Eraser, "⌫ Gomme", "E"), (STool::Fill, "🪣 Remplir", "G"), (STool::Picker, "💧 Pipette", "I"), (STool::Line, "／ Ligne", "L"), (STool::Rect, "▭ Rectangle", "R"), (STool::Origin, "✛ Origine", "O"), (STool::BoxCol, "⬚ Boîte", "C"), (STool::Poly, "⬠ Polygone", "P"), (STool::Point, "◆ Points", "N")] {
+            for (t, n, tip) in [(STool::Select, "⬚ Sélection", "S — glisser dans la sélection pour la déplacer (Alt : en copie)"), (STool::Pencil, "✏ Crayon", "B"), (STool::Eraser, "⌫ Gomme", "E"), (STool::Fill, "◍ Remplir", "G"), (STool::Picker, "💧 Pipette", "I"), (STool::Line, "／ Ligne", "L"), (STool::Rect, "▭ Rectangle", "R"), (STool::Ellipse, "◯ Ellipse", "U"), (STool::Origin, "✛ Origine", "O"), (STool::BoxCol, "▣ Boîte", "C"), (STool::Poly, "⬠ Polygone", "P"), (STool::Point, "◆ Points", "N")] {
                 if ui.add(theme::tab(ed.tool == t, n)).on_hover_text(format!("Raccourci : {}", tip)).clicked() {
                     ed.tool = t;
                 }
@@ -392,6 +649,9 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             ui.separator();
             ui.label(egui::RichText::new("Taille").color(C::MUTED()));
             ui.add(egui::DragValue::new(&mut ed.brush).range(1..=8));
+            ui.toggle_value(&mut ed.filled, "Plein").on_hover_text("Rectangles et ellipses pleins");
+            ui.toggle_value(&mut ed.sym_x, "Sym. ↔").on_hover_text("Symétrie gauche / droite en dessinant");
+            ui.toggle_value(&mut ed.sym_y, "Sym. ↕").on_hover_text("Symétrie haut / bas en dessinant");
             ui.separator();
             if ui.add_enabled(!ed.undo.is_empty(), theme::btn_small("↶")).on_hover_text("Annuler (Ctrl+Z)").clicked() {
                 undo(&mut ed);
@@ -404,7 +664,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             ui.label(egui::RichText::new("Zoom").color(C::MUTED()));
             ui.add(egui::Slider::new(&mut ed.zoom, 1.0..=48.0).integer());
             ui.separator();
-            if ui.add(theme::btn_accent("Enregistrer")).on_hover_text("Enregistrer dans le projet").clicked() {
+            if ui.add(theme::btn_accent("Enregistrer")).on_hover_text("Enregistrer dans le projet (Ctrl+S)").clicked() {
                 save = true;
             }
             if ui.add(theme::btn("Enregistrer et fermer")).clicked() {
@@ -420,9 +680,9 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
         });
         ui.separator();
         // raccourcis
-        if !ctx.wants_keyboard_input() {
+        if !crate::util::typing(ctx) {
             ctx.input(|i| {
-                for (k, t) in [(egui::Key::B, STool::Pencil), (egui::Key::E, STool::Eraser), (egui::Key::G, STool::Fill), (egui::Key::I, STool::Picker), (egui::Key::L, STool::Line), (egui::Key::R, STool::Rect), (egui::Key::O, STool::Origin), (egui::Key::C, STool::BoxCol), (egui::Key::P, STool::Poly), (egui::Key::N, STool::Point)] {
+                for (k, t) in [(egui::Key::S, STool::Select), (egui::Key::U, STool::Ellipse), (egui::Key::B, STool::Pencil), (egui::Key::E, STool::Eraser), (egui::Key::G, STool::Fill), (egui::Key::I, STool::Picker), (egui::Key::L, STool::Line), (egui::Key::R, STool::Rect), (egui::Key::O, STool::Origin), (egui::Key::C, STool::BoxCol), (egui::Key::P, STool::Poly), (egui::Key::N, STool::Point)] {
                     if i.key_pressed(k) && !i.modifiers.command {
                         ed.tool = t;
                     }
@@ -434,6 +694,55 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             }
             if y {
                 redo(&mut ed);
+            }
+            // presse-papiers et sélection
+            let (cc, cx, cv, ca, del, esc, ar) = ctx.input(|i| {
+                let m = i.modifiers.command;
+                let mut ar = (0, 0);
+                if !m {
+                    if i.key_pressed(egui::Key::ArrowLeft) { ar.0 = -1; }
+                    if i.key_pressed(egui::Key::ArrowRight) { ar.0 = 1; }
+                    if i.key_pressed(egui::Key::ArrowUp) { ar.1 = -1; }
+                    if i.key_pressed(egui::Key::ArrowDown) { ar.1 = 1; }
+                }
+                (m && i.key_pressed(egui::Key::C), m && i.key_pressed(egui::Key::X), m && i.key_pressed(egui::Key::V), m && i.key_pressed(egui::Key::A), i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace), i.key_pressed(egui::Key::Escape), ar)
+            });
+            if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::S)) {
+                save = true;
+            }
+            if cc {
+                ed.copy_sel(false);
+            }
+            if cx {
+                ed.copy_sel(true);
+            }
+            if cv {
+                ed.paste();
+            }
+            if ca {
+                ed.sel = Some([0, 0, ed.w as i32, ed.h as i32]);
+                ed.tool = STool::Select;
+            }
+            if del && ed.sel.is_some() {
+                ed.apply_op(ROp::Clear);
+            }
+            if esc {
+                ed.sel = None;
+            }
+            if ar != (0, 0) && ed.tool == STool::Select {
+                if let Some(r) = ed.sel {
+                    // déplace le contenu de la sélection d'un pixel
+                    ed.push_undo();
+                    let r = clamp_r(r, ed.w, ed.h);
+                    let (fw, fh) = (ed.w, ed.h);
+                    let buf = copy_region(ed.px(), fw, r);
+                    clear_region(ed.px(), fw, r);
+                    stamp(ed.px(), fw, fh, &buf, r[2], r[3], r[0] + ar.0, r[1] + ar.1, true);
+                    ed.sel = Some([r[0] + ar.0, r[1] + ar.1, r[2], r[3]]);
+                    ed.touch();
+                } else {
+                    ed.apply_op(ROp::Shift(ar.0, ar.1));
+                }
             }
         }
         ui.horizontal_top(|ui| {
@@ -501,7 +810,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         let (r, resp) = ui.allocate_exact_size(egui::vec2(22.0, 22.0), egui::Sense::click());
                         ui.painter().rect_filled(r, 3.0, *c);
                         if *c == ed.color {
-                            ui.painter().rect_stroke(r, 3.0, egui::Stroke::new(2.0, Color32::WHITE), egui::StrokeKind::Inside);
+                            ui.painter().rect_stroke(r, 3.0, egui::Stroke::new(2.0_f32, Color32::WHITE), egui::StrokeKind::Inside);
                         }
                         if resp.clicked() {
                             ed.color = *c;
@@ -512,6 +821,61 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         if k % 8 == 7 {
                             ui.end_row();
                         }
+                    }
+                });
+                theme::section(ui, "Transformer");
+                ui.label(egui::RichText::new(if ed.sel.is_some() { "S’applique à la sélection" } else { "S’applique à toute l’image" }).size(11.0).color(C::DIM()));
+                ui.horizontal_wrapped(|ui| {
+                    if ui.add(theme::btn_small("↔")).on_hover_text("Retourner horizontalement").clicked() {
+                        ed.apply_op(ROp::FlipH);
+                    }
+                    if ui.add(theme::btn_small("↕")).on_hover_text("Retourner verticalement").clicked() {
+                        ed.apply_op(ROp::FlipV);
+                    }
+                    let t = ed.target();
+                    if ui.add_enabled(t[2] == t[3], theme::btn_small("⟳ 90°")).on_hover_text("Rotation d’un quart de tour").on_disabled_hover_text("Zone carrée uniquement").clicked() {
+                        ed.apply_op(ROp::Rot);
+                    }
+                    for (n, d, tip) in [("◀", (-1, 0), "Décaler à gauche (bouclé)"), ("▶", (1, 0), "Décaler à droite"), ("▲", (0, -1), "Décaler en haut"), ("▼", (0, 1), "Décaler en bas")] {
+                        if ui.add(theme::btn_small(n)).on_hover_text(tip).clicked() {
+                            ed.apply_op(ROp::Shift(d.0, d.1));
+                        }
+                    }
+                });
+                ui.horizontal_wrapped(|ui| {
+                    if ui.add(theme::btn_small("Contour")).on_hover_text("Ajoute un contour d’un pixel, de la couleur courante, autour du dessin").clicked() {
+                        let c = ed.color.to_srgba_unmultiplied();
+                        ed.apply_op(ROp::Outline(c));
+                    }
+                    if ui.add(theme::btn_small("Effacer")).clicked() {
+                        ed.apply_op(ROp::Clear);
+                    }
+                });
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgba(&mut ed.repl_from).on_hover_text("Couleur à remplacer");
+                    ui.label("→");
+                    let c = ed.color;
+                    let (r, _) = ui.allocate_exact_size(egui::vec2(18.0, 18.0), egui::Sense::hover());
+                    ui.painter().rect_filled(r, 3.0, c);
+                    if ui.add(theme::btn_small("Remplacer")).on_hover_text("Remplace la couleur de gauche par la couleur courante").clicked() {
+                        let a = ed.repl_from.to_srgba_unmultiplied();
+                        ed.apply_op(ROp::Replace(a, c.to_srgba_unmultiplied()));
+                    }
+                });
+                ui.checkbox(&mut ed.all_frames, "Sur toutes les images de l’animation");
+                ui.horizontal_wrapped(|ui| {
+                    if ui.add(theme::btn_small("Copier")).on_hover_text("Ctrl+C").clicked() {
+                        ed.copy_sel(false);
+                    }
+                    if ui.add(theme::btn_small("Couper")).on_hover_text("Ctrl+X").clicked() {
+                        ed.copy_sel(true);
+                    }
+                    let has = CLIP.lock().unwrap().is_some();
+                    if ui.add_enabled(has, theme::btn_small("Coller")).on_hover_text("Ctrl+V — fonctionne aussi d’un sprite à l’autre").clicked() {
+                        ed.paste();
+                    }
+                    if ed.sel.is_some() && ui.add(theme::btn_small("Désélectionner")).on_hover_text("Échap").clicked() {
+                        ed.sel = None;
                     }
                 });
                 theme::section(ui, "Taille de l’image");
@@ -533,15 +897,47 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new("Planche :").color(C::MUTED()));
-                    ui.add(egui::DragValue::new(&mut ed.sheet_cols).range(1..=64)).on_hover_text("colonnes");
-                    ui.label("×");
-                    ui.add(egui::DragValue::new(&mut ed.sheet_rows).range(1..=64)).on_hover_text("lignes");
+                    ui.selectable_value(&mut ed.sheet_by_size, false, "cases");
+                    ui.selectable_value(&mut ed.sheet_by_size, true, "taille");
                 });
-                if ui.add(theme::btn_small("Découper une planche…")).on_hover_text("Remplace les images de l’animation par les cases de la planche").clicked() {
+                ui.horizontal(|ui| {
+                    if ed.sheet_by_size {
+                        ui.add(egui::DragValue::new(&mut ed.sheet_fw).range(1..=512)).on_hover_text("largeur d’une image (px)");
+                        ui.label("×");
+                        ui.add(egui::DragValue::new(&mut ed.sheet_fh).range(1..=512)).on_hover_text("hauteur d’une image (px)");
+                        ui.label(egui::RichText::new("px").color(C::DIM()));
+                    } else {
+                        ui.add(egui::DragValue::new(&mut ed.sheet_cols).range(1..=64)).on_hover_text("colonnes");
+                        ui.label("×");
+                        ui.add(egui::DragValue::new(&mut ed.sheet_rows).range(1..=64)).on_hover_text("lignes");
+                    }
+                });
+                ui.checkbox(&mut ed.sheet_new, "Dans une nouvelle animation");
+                ui.checkbox(&mut ed.sheet_skip, "Ignorer les cases vides");
+                if ui.add(theme::btn_small("Découper une planche…")).on_hover_text("Chaque case de la planche devient une image de l’animation").clicked() {
                     if let Some(p) = rfd::FileDialog::new().add_filter("Image", &["png", "jpg", "jpeg", "gif", "webp", "bmp"]).pick_file() {
                         let _ = ed.import(&p, true);
                     }
                 }
+                theme::section(ui, "Exporter");
+                ui.horizontal_wrapped(|ui| {
+                    if ui.add(theme::btn_small("Image PNG…")).on_hover_text("Enregistre l’image affichée").clicked() {
+                        if let Some(p) = rfd::FileDialog::new().add_filter("PNG", &["png"]).set_file_name(format!("{}.png", ed.name)).save_file() {
+                            let _ = std::fs::write(p, png_bytes(&ed.anims[ed.ca].frames[ed.cf], ed.w, ed.h));
+                        }
+                    }
+                    if ui.add(theme::btn_small("Planche PNG…")).on_hover_text("Toutes les images de l’animation côte à côte").clicked() {
+                        if let Some(p) = rfd::FileDialog::new().add_filter("PNG", &["png"]).set_file_name(format!("{}-{}.png", ed.name, ed.anims[ed.ca].name)).save_file() {
+                            let fr = &ed.anims[ed.ca].frames;
+                            let n = fr.len() as u32;
+                            let mut big = vec![0u8; (ed.w * n * ed.h * 4) as usize];
+                            for (k, f) in fr.iter().enumerate() {
+                                stamp(&mut big, ed.w * n, ed.h, f, ed.w as i32, ed.h as i32, (k as u32 * ed.w) as i32, 0, false);
+                            }
+                            let _ = std::fs::write(p, png_bytes(&big, ed.w * n, ed.h));
+                        }
+                    }
+                });
                 theme::section(ui, "Collision");
                 egui::ComboBox::from_id_salt("colmode").selected_text(match ed.collision.as_str() { "custom" => "boîte réglée", "poly" => "polygone", _ => "image entière" }).show_ui(ui, |ui| {
                     for (k, n) in [("auto", "image entière"), ("custom", "boîte réglée"), ("poly", "polygone (gardé tel quel)")] {
@@ -716,10 +1112,19 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             row += 1;
         }
         // pelure d'oignon
-        if ed.onion && ed.cf > 0 {
-            let prev = ed.anims[ed.ca].frames[ed.cf - 1].clone();
-            let t = tex_of(ctx, &prev, ed.w, ed.h, "onion");
-            p.image(t.id(), rect, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), Color32::from_white_alpha(70));
+        if ed.onion {
+            // image précédente teintée en rouge, suivante en bleu
+            let n = ed.anims[ed.ca].frames.len();
+            let lp = ed.anims[ed.ca].looping;
+            let prev = if ed.cf > 0 { Some(ed.cf - 1) } else if lp && n > 1 { Some(n - 1) } else { None };
+            let next = if ed.cf + 1 < n { Some(ed.cf + 1) } else if lp && n > 1 { Some(0) } else { None };
+            for (k, nm, tint) in [(prev, "onion_p", Color32::from_rgba_unmultiplied(255, 120, 120, 90)), (next, "onion_n", Color32::from_rgba_unmultiplied(120, 170, 255, 70))] {
+                if let Some(k) = k.filter(|k| *k != ed.cf) {
+                    let f = ed.anims[ed.ca].frames[k].clone();
+                    let t = tex_of(ctx, &f, ed.w, ed.h, nm);
+                    p.image(t.id(), rect, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), tint);
+                }
+            }
         }
         let need = !matches!(&ed.tex, Some((v, a, f, _)) if *v == ed.ver && *a == ed.ca && *f == ed.cf);
         if need {
@@ -728,7 +1133,7 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
         }
         p.image(ed.tex.as_ref().unwrap().3.id(), rect, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), Color32::WHITE);
         if ed.grid && z >= 6.0 {
-            let st = egui::Stroke::new(1.0, Color32::from_white_alpha(18));
+            let st = egui::Stroke::new(1.0_f32, Color32::from_white_alpha(18));
             for x in 0..=ed.w {
                 p.line_segment([egui::pos2(rect.left() + x as f32 * z, rect.top()), egui::pos2(rect.left() + x as f32 * z, rect.bottom())], st);
             }
@@ -740,11 +1145,11 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
         if ed.collision == "custom" || ed.tool == STool::BoxCol {
             let b = ed.cbox;
             let r = egui::Rect::from_min_size(rect.min + egui::vec2(b[0] as f32 * z, b[1] as f32 * z), egui::vec2(b[2] as f32 * z, b[3] as f32 * z));
-            p.rect_stroke(r, 0.0, egui::Stroke::new(1.5, Color32::from_rgb(0x3d, 0xdc, 0x97)), egui::StrokeKind::Middle);
+            p.rect_stroke(r, 0.0, egui::Stroke::new(1.5_f32, Color32::from_rgb(0x3d, 0xdc, 0x97)), egui::StrokeKind::Middle);
         }
         let o = rect.min + egui::vec2(ed.ox as f32 * z, ed.oy as f32 * z);
-        p.line_segment([o - egui::vec2(7.0, 0.0), o + egui::vec2(7.0, 0.0)], egui::Stroke::new(1.5, C::ACCENT()));
-        p.line_segment([o - egui::vec2(0.0, 7.0), o + egui::vec2(0.0, 7.0)], egui::Stroke::new(1.5, C::ACCENT()));
+        p.line_segment([o - egui::vec2(7.0, 0.0), o + egui::vec2(7.0, 0.0)], egui::Stroke::new(1.5_f32, C::ACCENT()));
+        p.line_segment([o - egui::vec2(0.0, 7.0), o + egui::vec2(0.0, 7.0)], egui::Stroke::new(1.5_f32, C::ACCENT()));
         // polygone de collision et points d'image
         let (ca, cf) = (ed.ca, ed.cf);
         let to_s = |q: [f64; 2]| rect.min + egui::vec2(q[0] as f32 * z, q[1] as f32 * z);
@@ -755,10 +1160,10 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
                 if let Some(f) = pts.first() {
                     cl.push(*f);
                 }
-                p.add(egui::Shape::line(cl, egui::Stroke::new(2.0, Color32::from_rgb(0x3d, 0xdc, 0x97))));
+                p.add(egui::Shape::line(cl, egui::Stroke::new(2.0_f32, Color32::from_rgb(0x3d, 0xdc, 0x97))));
                 if ed.tool == STool::Poly {
                     for q in &pts {
-                        p.circle(*q, 4.5, Color32::from_rgb(0x3d, 0xdc, 0x97), egui::Stroke::new(1.0, Color32::BLACK));
+                        p.circle(*q, 4.5, Color32::from_rgb(0x3d, 0xdc, 0x97), egui::Stroke::new(1.0_f32, Color32::BLACK));
                     }
                 }
             }
@@ -768,7 +1173,7 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             if let Some(q) = loc {
                 let c = to_s(q);
                 let col = if k == ed.cur_pt && ed.tool == STool::Point { C::ACCENT() } else { Color32::from_rgb(0x4d, 0xa3, 0xff) };
-                p.add(egui::Shape::convex_polygon(vec![c + egui::vec2(0.0, -6.0), c + egui::vec2(6.0, 0.0), c + egui::vec2(0.0, 6.0), c + egui::vec2(-6.0, 0.0)], col, egui::Stroke::new(1.0, Color32::BLACK)));
+                p.add(egui::Shape::convex_polygon(vec![c + egui::vec2(0.0, -6.0), c + egui::vec2(6.0, 0.0), c + egui::vec2(0.0, 6.0), c + egui::vec2(-6.0, 0.0)], col, egui::Stroke::new(1.0_f32, Color32::BLACK)));
                 p.text(c + egui::vec2(8.0, -8.0), egui::Align2::LEFT_BOTTOM, n, egui::FontId::proportional(11.0), Color32::WHITE);
             }
         }
@@ -854,9 +1259,9 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
         if let Some(pos) = resp.interact_pointer_pos().or(resp.hover_pos()) {
             let (cx, cy) = cell(pos);
             let inside = cx >= 0 && cy >= 0 && cx < ed.w as i32 && cy < ed.h as i32;
-            if inside && ed.tool != STool::Origin && ed.tool != STool::BoxCol {
+            if inside && ed.tool != STool::Origin && ed.tool != STool::BoxCol && ed.tool != STool::Select {
                 let r = egui::Rect::from_min_size(rect.min + egui::vec2(cx as f32 * z, cy as f32 * z), egui::vec2(z, z));
-                p.rect_stroke(r, 0.0, egui::Stroke::new(1.0, Color32::WHITE), egui::StrokeKind::Inside);
+                p.rect_stroke(r, 0.0, egui::Stroke::new(1.0_f32, Color32::WHITE), egui::StrokeKind::Inside);
             }
             match ed.tool {
                 STool::Pencil | STool::Eraser => {
@@ -886,29 +1291,89 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
                         ed.tool = STool::Pencil;
                     }
                 }
-                STool::Line | STool::Rect => {
+                STool::Select => {
+                    let (cx, cy) = (cx.clamp(0, ed.w as i32), cy.clamp(0, ed.h as i32));
+                    if resp.drag_started_by(egui::PointerButton::Primary) {
+                        let o = ctx.input(|i| i.pointer.press_origin()).unwrap_or(pos);
+                        let (sx, sy) = cell(o);
+                        let in_sel = ed.sel.map(|r| sx >= r[0] && sy >= r[1] && sx < r[0] + r[2] && sy < r[1] + r[3]).unwrap_or(false);
+                        if in_sel {
+                            // soulève les pixels (Alt : en garde une copie)
+                            let r = clamp_r(ed.sel.unwrap(), ed.w, ed.h);
+                            ed.push_undo();
+                            let fw = ed.w;
+                            let buf = copy_region(ed.px(), fw, r);
+                            if !ctx.input(|i| i.modifiers.alt) {
+                                clear_region(ed.px(), fw, r);
+                            }
+                            ed.lift = Some((buf, r[2], r[3], sx - r[0], sy - r[1]));
+                            ed.touch();
+                        } else {
+                            ed.start = Some((sx.clamp(0, ed.w as i32 - 1), sy.clamp(0, ed.h as i32 - 1)));
+                            ed.sel = None;
+                        }
+                    }
+                    if resp.dragged_by(egui::PointerButton::Primary) {
+                        if let Some((_, w, h, gx, gy)) = &ed.lift {
+                            ed.sel = Some([cx - gx, cy - gy, *w, *h]);
+                        } else if let Some(s0) = ed.start {
+                            let (x0, x1) = (s0.0.min(cx), s0.0.max(cx).min(ed.w as i32 - 1));
+                            let (y0, y1) = (s0.1.min(cy), s0.1.max(cy).min(ed.h as i32 - 1));
+                            ed.sel = Some([x0, y0, x1 - x0 + 1, y1 - y0 + 1]);
+                        }
+                    }
+                    if resp.drag_stopped() {
+                        if let Some((buf, w, h, _, _)) = ed.lift.take() {
+                            if let Some(r) = ed.sel {
+                                let (fw, fh) = (ed.w, ed.h);
+                                stamp(ed.px(), fw, fh, &buf, w, h, r[0], r[1], true);
+                            }
+                            ed.touch();
+                        }
+                        ed.start = None;
+                    }
+                    if resp.clicked() {
+                        let in_sel = ed.sel.map(|r| cx >= r[0] && cy >= r[1] && cx < r[0] + r[2] && cy < r[1] + r[3]).unwrap_or(false);
+                        if !in_sel {
+                            ed.sel = None;
+                        }
+                    }
+                }
+                STool::Line | STool::Rect | STool::Ellipse => {
                     if down && ed.start.is_none() {
                         ed.start = Some((cx, cy));
                     }
                     if let Some(s) = ed.start {
                         let a = rect.min + egui::vec2((s.0 as f32 + 0.5) * z, (s.1 as f32 + 0.5) * z);
                         let b = rect.min + egui::vec2((cx as f32 + 0.5) * z, (cy as f32 + 0.5) * z);
-                        if ed.tool == STool::Line {
-                            p.line_segment([a, b], egui::Stroke::new(z.max(1.0) * ed.brush as f32, ed.color));
-                        } else {
-                            p.rect_stroke(egui::Rect::from_two_pos(a, b), 0.0, egui::Stroke::new(z.max(1.0) * ed.brush as f32, ed.color), egui::StrokeKind::Middle);
+                        let st = egui::Stroke::new(z.max(1.0) * ed.brush as f32, ed.color);
+                        let fr = egui::Rect::from_two_pos(a, b).expand(z / 2.0);
+                        match ed.tool {
+                            STool::Line => {
+                                p.line_segment([a, b], st);
+                            }
+                            STool::Rect if ed.filled => {
+                                p.rect_filled(fr, 0.0, ed.color);
+                            }
+                            STool::Rect => {
+                                p.rect_stroke(egui::Rect::from_two_pos(a, b), 0.0, st, egui::StrokeKind::Middle);
+                            }
+                            _ => {
+                                let rad = fr.size() / 2.0;
+                                if ed.filled {
+                                    p.add(egui::Shape::ellipse_filled(fr.center(), rad, ed.color));
+                                } else {
+                                    p.add(egui::Shape::ellipse_stroke(fr.center(), rad - egui::vec2(z / 2.0, z / 2.0), st));
+                                }
+                            }
                         }
                         if !prim && !sec {
                             ed.push_undo();
                             if ed.tool == STool::Line {
                                 ed.line(s, (cx, cy), col);
                             } else {
-                                let (x0, x1) = (s.0.min(cx), s.0.max(cx));
-                                let (y0, y1) = (s.1.min(cy), s.1.max(cy));
-                                ed.line((x0, y0), (x1, y0), col);
-                                ed.line((x1, y0), (x1, y1), col);
-                                ed.line((x1, y1), (x0, y1), col);
-                                ed.line((x0, y1), (x0, y0), col);
+                                let (el, fl) = (ed.tool == STool::Ellipse, ed.filled);
+                                ed.shape(s, (cx, cy), col, el, fl);
                             }
                             ed.start = None;
                             ed.touch();
@@ -942,6 +1407,29 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
                 }
             }
         }
+        // pixels soulevés, sélection et axes de symétrie
+        if let (Some((buf, w, h, _, _)), Some(r)) = (&ed.lift, ed.sel) {
+            let t = tex_of(ctx, buf, *w as u32, *h as u32, "lift");
+            let rr = egui::Rect::from_min_size(rect.min + egui::vec2(r[0] as f32 * z, r[1] as f32 * z), egui::vec2(*w as f32 * z, *h as f32 * z));
+            p.image(t.id(), rr, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), Color32::WHITE);
+        }
+        if let Some(r) = ed.sel {
+            let rr = egui::Rect::from_min_size(rect.min + egui::vec2(r[0] as f32 * z, r[1] as f32 * z), egui::vec2(r[2] as f32 * z, r[3] as f32 * z));
+            p.rect_stroke(rr, 0.0, egui::Stroke::new(1.0_f32, Color32::BLACK), egui::StrokeKind::Middle);
+            let ph = (ctx.input(|i| i.time) * 8.0) as f32 % 8.0;
+            let pts = vec![rr.left_top(), rr.right_top(), rr.right_bottom(), rr.left_bottom(), rr.left_top()];
+            p.add(egui::Shape::dashed_line_with_offset(&pts, egui::Stroke::new(1.0_f32, Color32::WHITE), &[4.0], &[4.0], ph));
+            ctx.request_repaint_after(std::time::Duration::from_millis(120));
+        }
+        let ax = egui::Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(255, 138, 61, 150));
+        if ed.sym_x {
+            let x = rect.center().x;
+            p.line_segment([egui::pos2(x, rect.top()), egui::pos2(x, rect.bottom())], ax);
+        }
+        if ed.sym_y {
+            let y = rect.center().y;
+            p.line_segment([egui::pos2(rect.left(), y), egui::pos2(rect.right(), y)], ax);
+        }
         if !prim && !sec {
             if ed.last.is_some() && !ed.recent.contains(&ed.color) && ed.tool == STool::Pencil && !PAL.iter().any(|c| Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, *c as u8) == ed.color) {
                 ed.recent.insert(0, ed.color);
@@ -972,7 +1460,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
                 let (r, resp) = ui.allocate_exact_size(egui::vec2(64.0, 64.0), egui::Sense::click());
                 ui.painter().rect_filled(r, 6.0, C::BG0());
                 ui.painter().image(t.id(), egui::Rect::from_center_size(r.center(), egui::vec2(ed.w as f32 * s, ed.h as f32 * s)), egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), Color32::WHITE);
-                ui.painter().rect_stroke(r, 6.0, egui::Stroke::new(if k == ed.cf { 2.0 } else { 1.0 }, if k == ed.cf { C::ACCENT() } else { C::LINE2() }), egui::StrokeKind::Inside);
+                ui.painter().rect_stroke(r, 6.0, egui::Stroke::new(if k == ed.cf { 2.0_f32 } else { 1.0 }, if k == ed.cf { C::ACCENT() } else { C::LINE2() }), egui::StrokeKind::Inside);
                 ui.painter().text(r.left_top() + egui::vec2(4.0, 2.0), egui::Align2::LEFT_TOP, (k + 1).to_string(), egui::FontId::proportional(10.0), C::DIM());
                 if resp.clicked() {
                     ed.cf = k;

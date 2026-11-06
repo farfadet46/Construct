@@ -34,7 +34,7 @@ fn drop_zone(app: &mut App, ui: &egui::Ui, rect: egui::Rect, path: &Vec<usize>, 
     }
     let f = (pos.y - rect.top()) / rect.height().max(1.0);
     let mode: u8 = if nests && f > 0.3 && f < 0.7 { 2 } else if f < 0.5 { 0 } else { 1 };
-    let st = egui::Stroke::new(2.5, C::ACCENT());
+    let st = egui::Stroke::new(2.5_f32, C::ACCENT());
     let p = ui.painter();
     match mode {
         0 => { p.hline(rect.x_range(), rect.top() - 1.5, st); }
@@ -286,7 +286,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
         ui.label("Aucune feuille d’événements.");
         return;
     }
-    if !ui.ctx().wants_keyboard_input() {
+    if !crate::util::typing(ui.ctx()) && app.sprite.is_none() {
         let (c, v) = ui.ctx().input(|i| (i.modifiers.command && i.key_pressed(egui::Key::C), i.modifiers.command && i.key_pressed(egui::Key::V)));
         if c && app.ev.sel.is_some() {
             copy_sel(app, ui.ctx());
@@ -299,7 +299,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
         ui.horizontal_wrapped(|ui| {
             let sel = app.ev.sel.clone();
-            let mut add = |app: &mut App, e: Json, sub: bool| {
+            let add = |app: &mut App, e: Json, sub: bool| {
                 app.snapshot();
                 let sel = app.ev.sel.clone();
                 let sh = sheet_mut(app).unwrap();
@@ -460,7 +460,7 @@ fn draw_list(app: &mut App, ui: &mut egui::Ui, list: &[Json], path: &mut Vec<usi
 }
 
 fn row_frame(sel: bool, off: bool, fill: egui::Color32) -> egui::Frame {
-    egui::Frame::new().fill(if off { C::BG1() } else { fill }).corner_radius(8.0).inner_margin(egui::Margin::symmetric(8, 6)).stroke(egui::Stroke::new(if sel { 1.5 } else { 1.0 }, if sel { C::ACCENT() } else { C::LINE() }))
+    egui::Frame::new().fill(if off { C::BG1() } else { fill }).corner_radius(8.0).inner_margin(egui::Margin::symmetric(8, 6)).stroke(egui::Stroke::new(if sel { 1.5_f32 } else { 1.0 }, if sel { C::ACCENT() } else { C::LINE() }))
 }
 
 fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, depth: usize) {

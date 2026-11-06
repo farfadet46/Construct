@@ -30,6 +30,33 @@ impl Preview {
             }
         }
     }
+    /// joue des échantillons entrelacés (plusieurs canaux)
+    pub fn play_ch(app: &mut App, samples: Vec<f32>, ch: u16, rate: u32) {
+        if app.preview.is_none() {
+            if let Ok((s, h)) = rodio::OutputStream::try_default() {
+                app.preview = Some(Preview { _s: s, h, sink: None });
+            }
+        }
+        if let Some(p) = app.preview.as_mut() {
+            if let Some(old) = p.sink.take() {
+                old.stop();
+            }
+            if let Ok(sk) = rodio::Sink::try_new(&p.h) {
+                sk.append(rodio::buffer::SamplesBuffer::new(ch.max(1), rate, samples));
+                p.sink = Some(sk);
+            }
+        }
+    }
+    pub fn stop(app: &mut App) {
+        if let Some(p) = app.preview.as_mut() {
+            if let Some(old) = p.sink.take() {
+                old.stop();
+            }
+        }
+    }
+    pub fn playing(app: &App) -> bool {
+        app.preview.as_ref().and_then(|p| p.sink.as_ref()).map(|s| !s.empty()).unwrap_or(false)
+    }
     pub fn play_bytes(app: &mut App, b: Vec<u8>) {
         if app.preview.is_none() {
             if let Ok((s, h)) = rodio::OutputStream::try_default() {
@@ -157,7 +184,7 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
             for (si, s) in steps.iter().enumerate() {
                 let d = defs.iter().find(|x| x.0 == s.s("t"));
                 let together = pf_runtime::rt::jtruthy(s.get("w"));
-                egui::Frame::new().fill(C::BG2()).corner_radius(8.0).inner_margin(8.0).stroke(egui::Stroke::new(1.0, if together { C::ACCENT_SOFT() } else { C::LINE() })).show(ui, |ui| {
+                egui::Frame::new().fill(C::BG2()).corner_radius(8.0).inner_margin(8.0).stroke(egui::Stroke::new(1.0_f32, if together { C::ACCENT_SOFT() } else { C::LINE() })).show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(format!("{} {}", d.map(|x| x.2).unwrap_or("?"), d.map(|x| x.1).unwrap_or("?"))).strong().color(C::TEXT()));
                         ui.label(RichText::new(summary(app, s)).color(C::MUTED()));
@@ -621,7 +648,7 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
         let (rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 80.0), egui::Sense::hover());
         let p = ui.painter_at(rect);
         p.rect_filled(rect, 6.0, C::BG0());
-        p.line_segment([rect.left_center(), rect.right_center()], egui::Stroke::new(1.0, C::LINE2()));
+        p.line_segment([rect.left_center(), rect.right_center()], egui::Stroke::new(1.0_f32, C::LINE2()));
         let n = ed.data.len().max(1);
         let w = rect.width() as usize;
         for x in 0..w {
@@ -633,7 +660,7 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
                 mx = mx.max(*v);
             }
             let h = rect.height() / 2.0 * 1.2;
-            p.line_segment([egui::pos2(rect.left() + x as f32, rect.center().y - mx * h), egui::pos2(rect.left() + x as f32, rect.center().y - mn * h + 1.0)], egui::Stroke::new(1.0, C::ACCENT()));
+            p.line_segment([egui::pos2(rect.left() + x as f32, rect.center().y - mx * h), egui::pos2(rect.left() + x as f32, rect.center().y - mn * h + 1.0)], egui::Stroke::new(1.0_f32, C::ACCENT()));
         }
         ui.horizontal(|ui| {
             if ui.add(theme::btn_accent("▶ Écouter")).clicked() {
@@ -936,7 +963,7 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                 if let Some(f) = pts.first() {
                     closed.push(*f);
                 }
-                p.add(egui::Shape::line(closed, egui::Stroke::new(3.0, theme::color32(if o.s("roadA").is_empty() { "#727280" } else { o.s("roadA") }))));
+                p.add(egui::Shape::line(closed, egui::Stroke::new(3.0_f32, theme::color32(if o.s("roadA").is_empty() { "#727280" } else { o.s("roadA") }))));
                 if let Some(f) = pts.first() {
                     p.rect_filled(egui::Rect::from_center_size(*f, egui::vec2(6.0, 6.0)), 1.0, egui::Color32::WHITE);
                 }
@@ -951,9 +978,9 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                 let (mn, mx) = ys.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |a, &y| (a.0.min(y), a.1.max(y)));
                 let span = (mx - mn).max(1.0);
                 let prof: Vec<egui::Pos2> = ys.iter().enumerate().map(|(i, y)| egui::pos2(rect2.left() + 6.0 + (i as f32 / ys.len().max(1) as f32) * (rect2.width() - 12.0), rect2.bottom() - 8.0 - ((y - mn) / span) as f32 * (rect2.height() - 16.0))).collect();
-                p2.add(egui::Shape::line(prof, egui::Stroke::new(2.0, C::OK())));
+                p2.add(egui::Shape::line(prof, egui::Stroke::new(2.0_f32, C::OK())));
                 let x = rect2.left() + 6.0 + (k as f32 / ys.len().max(1) as f32) * (rect2.width() - 12.0);
-                p2.line_segment([egui::pos2(x, rect2.top()), egui::pos2(x, rect2.bottom())], egui::Stroke::new(1.0, egui::Color32::from_rgb(0xff, 0x3b, 0x4f)));
+                p2.line_segment([egui::pos2(x, rect2.top()), egui::pos2(x, rect2.bottom())], egui::Stroke::new(1.0_f32, egui::Color32::from_rgb(0xff, 0x3b, 0x4f)));
                 ui.label(RichText::new(format!("{} tronçons · {} segments · un tour ≈ {:.0} s à fond", ed.secs.len(), r.segs.len(), r.len / (r.l * 60.0))).size(11.0).color(C::DIM()));
             });
         });

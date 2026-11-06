@@ -193,7 +193,7 @@ fn beh_param(ui: &mut egui::Ui, app: &App, def: &Json, v: &mut Json) -> bool {
 }
 
 pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
-    egui::SidePanel::right("props").default_width(300.0).min_width(240.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0, C::LINE()))).show(ctx, |ui| {
+    egui::SidePanel::right("props").default_width(300.0).min_width(240.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0_f32, C::LINE()))).show(ctx, |ui| {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             match app.sel.clone() {
                 Sel::Inst(id) => inst_props(app, ui, &id),
@@ -392,6 +392,9 @@ fn obj_props(app: &mut App, ui: &mut egui::Ui, id: &str, now: f64) {
     // particules
     if kind == "particles" {
         theme::section(ui, "Émetteur de particules");
+        if ui.add(theme::btn_accent("✦  Éditeur de particules (aperçu en direct)")).clicked() {
+            app.part_ed = crate::particles::PartEd::open(app, id);
+        }
         ui.horizontal_wrapped(|ui| {
             ui.label(egui::RichText::new("Préréglage :").color(C::MUTED()));
             if let Some(pr) = pf_core::catalog::catalog()["PTPRESETS"].as_object() {
@@ -406,13 +409,15 @@ fn obj_props(app: &mut App, ui: &mut egui::Ui, id: &str, now: f64) {
                 }
             }
         });
-        egui::Grid::new("pt").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
-            if let Some(m) = edited.get_mut("pt").and_then(|p| p.as_object_mut()) {
-                let keys: Vec<String> = m.keys().cloned().collect();
-                for k in keys {
-                    ch |= field(ui, &k, m.get_mut(&k).unwrap(), &k);
+        egui::CollapsingHeader::new("Réglages bruts").id_salt("ptraw").show(ui, |ui| {
+            egui::Grid::new("pt").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
+                if let Some(m) = edited.get_mut("pt").and_then(|p| p.as_object_mut()) {
+                    let keys: Vec<String> = m.keys().cloned().collect();
+                    for k in keys {
+                        ch |= field(ui, &k, m.get_mut(&k).unwrap(), &k);
+                    }
                 }
-            }
+            });
         });
     }
     if kind == "array" {
@@ -520,7 +525,7 @@ fn obj_props(app: &mut App, ui: &mut egui::Ui, id: &str, now: f64) {
         for (bi, b) in bhs.iter().enumerate() {
             let t = b.s("type");
             let d = cat.get(t).cloned().unwrap_or(Json::Null);
-            egui::Frame::new().fill(C::BG2()).corner_radius(8.0).inner_margin(8.0).stroke(egui::Stroke::new(1.0, C::LINE())).show(ui, |ui| {
+            egui::Frame::new().fill(C::BG2()).corner_radius(8.0).inner_margin(8.0).stroke(egui::Stroke::new(1.0_f32, C::LINE())).show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(d.s("n")).strong().color(C::TEXT()));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -832,6 +837,9 @@ fn sound_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
             app.sfx_ed = Some(crate::more::SfxEd::new(app, Some(id.to_string())));
         }
     });
+    if ui.add(theme::btn("☰ Bibliothèque de sons (rogner, volume…)")).clicked() {
+        app.snd_lib = Some(Default::default());
+    }
     if ui.add(theme::btn_small("Supprimer le son")).clicked() {
         app.snapshot();
         app.proj["sounds"].as_array_mut().unwrap().remove(k);

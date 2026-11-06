@@ -77,47 +77,47 @@ fn apply_style(ctx: &egui::Context) {
     v.window_fill = C::BG2();
     v.extreme_bg_color = C::BG0();
     v.faint_bg_color = C::BG2();
-    v.window_stroke = Stroke::new(1.0, C::LINE2());
+    v.window_stroke = Stroke::new(1.0_f32, C::LINE2());
     v.window_corner_radius = CornerRadius::same(12);
     v.menu_corner_radius = CornerRadius::same(8);
     v.selection.bg_fill = if light { Color32::from_rgb(0xff, 0xd9, 0xbd) } else { Color32::from_rgb(0x5a, 0x34, 0x1a) };
-    v.selection.stroke = Stroke::new(1.0, C::ACCENT());
+    v.selection.stroke = Stroke::new(1.0_f32, C::ACCENT());
     v.hyperlink_color = C::ACCENT();
     for w in [&mut v.widgets.noninteractive, &mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active, &mut v.widgets.open] {
         w.corner_radius = CornerRadius::same(6);
     }
     v.widgets.noninteractive.bg_fill = C::BG2();
-    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, C::LINE());
-    v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, C::TEXT2());
+    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, C::LINE());
+    v.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, C::TEXT2());
     v.widgets.inactive.bg_fill = C::BG3();
     v.widgets.inactive.weak_bg_fill = C::BG3();
-    v.widgets.inactive.bg_stroke = Stroke::new(1.0, C::LINE2());
-    v.widgets.inactive.fg_stroke = Stroke::new(1.0, C::TEXT2());
+    v.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, C::LINE2());
+    v.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, C::TEXT2());
     v.widgets.hovered.bg_fill = C::BG4();
     v.widgets.hovered.weak_bg_fill = C::BG4();
-    v.widgets.hovered.bg_stroke = Stroke::new(1.0, C::LINE3());
-    v.widgets.hovered.fg_stroke = Stroke::new(1.0, C::TEXT());
+    v.widgets.hovered.bg_stroke = Stroke::new(1.0_f32, C::LINE3());
+    v.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, C::TEXT());
     v.widgets.active.bg_fill = C::BG4();
     v.widgets.active.weak_bg_fill = C::BG4();
-    v.widgets.active.bg_stroke = Stroke::new(1.0, C::ACCENT());
-    v.widgets.active.fg_stroke = Stroke::new(1.0, C::TEXT());
+    v.widgets.active.bg_stroke = Stroke::new(1.0_f32, C::ACCENT());
+    v.widgets.active.fg_stroke = Stroke::new(1.0_f32, C::TEXT());
     v.widgets.open.bg_fill = C::BG3();
     ctx.set_style(st);
 }
 
 pub fn btn(t: &str) -> egui::Button<'static> {
-    egui::Button::new(egui::RichText::new(t.to_string()).color(C::TEXT2())).fill(C::BG3()).stroke(Stroke::new(1.0, C::LINE2())).corner_radius(7)
+    egui::Button::new(egui::RichText::new(t.to_string()).color(C::TEXT2())).fill(C::BG3()).stroke(Stroke::new(1.0_f32, C::LINE2())).corner_radius(7)
 }
 pub fn btn_accent(t: &str) -> egui::Button<'static> {
     egui::Button::new(egui::RichText::new(t.to_string()).color(Color32::from_rgb(0x1a, 0x0f, 0x07)).strong()).fill(Color32::from_rgb(0xff, 0x8a, 0x3d)).corner_radius(7)
 }
 pub fn btn_small(t: &str) -> egui::Button<'static> {
-    egui::Button::new(egui::RichText::new(t.to_string()).size(12.0).color(C::TEXT2())).fill(C::BG3()).stroke(Stroke::new(1.0, C::LINE2())).corner_radius(6)
+    egui::Button::new(egui::RichText::new(t.to_string()).size(12.0).color(C::TEXT2())).fill(C::BG3()).stroke(Stroke::new(1.0_f32, C::LINE2())).corner_radius(6)
 }
 pub fn tab(on: bool, t: &str) -> egui::Button<'static> {
     let b = egui::Button::new(egui::RichText::new(t.to_string()).color(if on { C::TEXT() } else { C::MUTED() })).corner_radius(7);
     if on {
-        b.fill(C::BG3()).stroke(Stroke::new(1.0, C::ACCENT()))
+        b.fill(C::BG3()).stroke(Stroke::new(1.0_f32, C::ACCENT()))
     } else {
         b.fill(Color32::TRANSPARENT).stroke(Stroke::NONE)
     }

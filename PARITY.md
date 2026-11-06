@@ -63,3 +63,19 @@ d'objets identiques** à la version HTML.
 | Thème clair / sombre (bouton ☀ / ☾ en haut à droite, choix mémorisé) | ✅ |
 | Copier / coller des événements (Ctrl+C / Ctrl+V, entre feuilles) | ✅ |
 | Glisser-déposer des événements (poignée ⠿ : avant, après, ou dedans un événement / groupe) | ✅ |
+
+## Au-delà de la version HTML (outils de création)
+
+| Ajout | État |
+|---|---|
+| Sprites : outil Sélection (déplacer, copie avec Alt, flèches, Suppr), copier / couper / coller entre sprites | ✅ |
+| Sprites : ellipse, formes pleines, dessin symétrique (↔, ↕) | ✅ |
+| Sprites : retourner ↔ ↕, rotation 90°, décalage bouclé, contour automatique, remplacer une couleur (image ou toute l'animation) | ✅ |
+| Sprites : pelure d'oignon avant (rouge) et après (bleu) | ✅ |
+| Sprites : découpe de planche par taille d'image, dans une nouvelle animation, cases vides ignorées ; export PNG (image ou planche) | ✅ |
+| Tuiles : rectangle, tampon de plusieurs tuiles (glisser dans la palette), pipette (Alt+clic), tracé continu sans trous | ✅ |
+| Tuiles : terrain automatique 3×3 (bords et coins posés tout seuls) | ✅ |
+| Particules : éditeur dédié en français, couleurs, forme, aperçu en direct par le moteur du jeu (4 fonds) | ✅ |
+| Sons : bibliothèque (forme d'onde, durée, format, taille, nombre d'utilisations, import multiple, export, suppression avec avertissement) | ✅ |
+| Sons : rognage, volume, normalisation, fondus d'entrée / de sortie, écoute du résultat | ✅ |
+
