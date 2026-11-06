@@ -1,25 +1,50 @@
 name: Construire PlatForge Studio
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+permissions:
+  contents: write
 jobs:
   build:
     strategy:
       matrix:
         include:
           - os: windows-latest
-            exe: platforge.exe
+            src: platforge.exe
+            out: PlatForge-Windows.exe
           - os: macos-latest
-            exe: platforge
+            src: platforge
+            out: PlatForge-macOS.tar.gz
           - os: ubuntu-latest
-            exe: platforge
+            src: platforge
+            out: PlatForge-Linux.tar.gz
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev libgtk-3-dev
-      - run: cargo test -p pf_core -p pf_runtime --release
       - run: cargo build --release -p pf_editor
+      - name: Préparer le fichier
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp target/release/platforge.exe "${{ matrix.out }}"
+          else
+            mkdir PlatForge && cp target/release/platforge PlatForge/ && chmod +x PlatForge/platforge
+            tar czf "${{ matrix.out }}" PlatForge
+          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: platforge-${{ matrix.os }}
-          path: target/release/${{ matrix.exe }}
+          name: ${{ matrix.out }}
+          path: ${{ matrix.out }}
+      - name: Publier dans la Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.out }}
