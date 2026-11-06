@@ -271,7 +271,7 @@ impl SpriteEd {
             pts: a.arr("pts").iter().map(|m| if m.is_object() { m.clone() } else { json!({}) }).collect(),
         }).collect();
         if anims.is_empty() {
-            anims.push(AnimEd::new("Défaut".into(), vec![0u8; (w * h * 4) as usize]));
+            anims.push(AnimEd::new(crate::i18n::tr("Défaut").into(), vec![0u8; (w * h * 4) as usize]));
         }
         for a in &mut anims {
             if a.frames.is_empty() {
@@ -562,7 +562,7 @@ impl SpriteEd {
             }
         }
         if sheet && self.sheet_new {
-            let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| format!("Anim{}", self.anims.len() + 1));
+            let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| crate::i18n::trf("Anim{0}", &[format!("{}", self.anims.len() + 1)]));
             let mut a = AnimEd::new(name, frames.remove(0));
             for f in frames {
                 a.frames.push(f);
@@ -638,44 +638,44 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
     let mut close = false;
     let mut save = false;
     let (dsz, msz) = theme::fit(ctx, 1000.0, 680.0);
-    egui::Window::new(format!("Éditeur de sprites — {}", ed.name)).id(egui::Id::new("spred")).open(&mut open).default_size(dsz).max_size(msz).min_size([560.0, 360.0]).resizable(true).collapsible(false).constrain(true).show(ctx, |ui| {
+    egui::Window::new(crate::i18n::trf("Éditeur de sprites — {0}", &[format!("{}", ed.name)])).id(egui::Id::new("spred")).open(&mut open).default_size(dsz).max_size(msz).min_size([560.0, 360.0]).resizable(true).collapsible(false).constrain(true).show(ctx, |ui| {
         // ---- barre du haut
         ui.horizontal_wrapped(|ui| {
-            for (t, n, tip) in [(STool::Select, "⬚ Sélection", "S — glisser dans la sélection pour la déplacer (Alt : en copie)"), (STool::Pencil, "✏ Crayon", "B"), (STool::Eraser, "⌫ Gomme", "E"), (STool::Fill, "◍ Remplir", "G"), (STool::Picker, "💧 Pipette", "I"), (STool::Line, "／ Ligne", "L"), (STool::Rect, "▭ Rectangle", "R"), (STool::Ellipse, "◯ Ellipse", "U"), (STool::Origin, "✛ Origine", "O"), (STool::BoxCol, "▣ Boîte", "C"), (STool::Poly, "⬠ Polygone", "P"), (STool::Point, "◆ Points", "N")] {
-                if ui.add(theme::tab(ed.tool == t, n)).on_hover_text(format!("Raccourci : {}", tip)).clicked() {
+            for (t, n, tip) in [(STool::Select, crate::i18n::tr("⬚ Sélection"), crate::i18n::tr("S — glisser dans la sélection pour la déplacer (Alt : en copie)")), (STool::Pencil, crate::i18n::tr("✏ Crayon"), "B"), (STool::Eraser, crate::i18n::tr("⌫ Gomme"), "E"), (STool::Fill, crate::i18n::tr("◍ Remplir"), "G"), (STool::Picker, crate::i18n::tr("💧 Pipette"), "I"), (STool::Line, crate::i18n::tr("／ Ligne"), "L"), (STool::Rect, crate::i18n::tr("▭ Rectangle"), "R"), (STool::Ellipse, crate::i18n::tr("◯ Ellipse"), "U"), (STool::Origin, crate::i18n::tr("✛ Origine"), "O"), (STool::BoxCol, crate::i18n::tr("▣ Boîte"), "C"), (STool::Poly, crate::i18n::tr("⬠ Polygone"), "P"), (STool::Point, crate::i18n::tr("◆ Points"), "N")] {
+                if ui.add(theme::tab(ed.tool == t, n)).on_hover_text(crate::i18n::trf("Raccourci : {0}", &[format!("{}", tip)])).clicked() {
                     ed.tool = t;
                 }
             }
             ui.separator();
-            ui.label(egui::RichText::new("Taille").color(C::MUTED()));
+            ui.label(egui::RichText::new(crate::i18n::tr("Taille")).color(C::MUTED()));
             ui.add(egui::DragValue::new(&mut ed.brush).range(1..=8));
-            ui.toggle_value(&mut ed.filled, "Plein").on_hover_text("Rectangles et ellipses pleins");
-            ui.toggle_value(&mut ed.sym_x, "Sym. ↔").on_hover_text("Symétrie gauche / droite en dessinant");
-            ui.toggle_value(&mut ed.sym_y, "Sym. ↕").on_hover_text("Symétrie haut / bas en dessinant");
+            ui.toggle_value(&mut ed.filled, crate::i18n::tr("Plein")).on_hover_text(crate::i18n::tr("Rectangles et ellipses pleins"));
+            ui.toggle_value(&mut ed.sym_x, crate::i18n::tr("Sym. ↔")).on_hover_text(crate::i18n::tr("Symétrie gauche / droite en dessinant"));
+            ui.toggle_value(&mut ed.sym_y, crate::i18n::tr("Sym. ↕")).on_hover_text(crate::i18n::tr("Symétrie haut / bas en dessinant"));
             ui.separator();
-            if ui.add_enabled(!ed.undo.is_empty(), theme::btn_small("↶")).on_hover_text("Annuler (Ctrl+Z)").clicked() {
+            if ui.add_enabled(!ed.undo.is_empty(), theme::btn_small("↶")).on_hover_text(crate::i18n::tr("Annuler (Ctrl+Z)")).clicked() {
                 undo(&mut ed);
             }
-            if ui.add_enabled(!ed.redo.is_empty(), theme::btn_small("↷")).on_hover_text("Rétablir (Ctrl+Y)").clicked() {
+            if ui.add_enabled(!ed.redo.is_empty(), theme::btn_small("↷")).on_hover_text(crate::i18n::tr("Rétablir (Ctrl+Y)")).clicked() {
                 redo(&mut ed);
             }
-            ui.toggle_value(&mut ed.grid, "Grille");
-            ui.toggle_value(&mut ed.onion, "Pelure d’oignon");
-            ui.label(egui::RichText::new("Zoom").color(C::MUTED()));
+            ui.toggle_value(&mut ed.grid, crate::i18n::tr("Grille"));
+            ui.toggle_value(&mut ed.onion, crate::i18n::tr("Pelure d’oignon"));
+            ui.label(egui::RichText::new(crate::i18n::tr("Zoom")).color(C::MUTED()));
             ui.add(egui::Slider::new(&mut ed.zoom, 1.0..=48.0).integer());
             ui.separator();
-            if ui.add(theme::btn_accent("Enregistrer")).on_hover_text("Enregistrer dans le projet (Ctrl+S)").clicked() {
+            if ui.add(theme::btn_accent(crate::i18n::tr("Enregistrer"))).on_hover_text(crate::i18n::tr("Enregistrer dans le projet (Ctrl+S)")).clicked() {
                 save = true;
             }
-            if ui.add(theme::btn("Enregistrer et fermer")).clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("Enregistrer et fermer"))).clicked() {
                 save = true;
                 close = true;
             }
-            if ui.add(theme::btn("Fermer")).on_hover_text("Fermer sans enregistrer").clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("Fermer"))).on_hover_text(crate::i18n::tr("Fermer sans enregistrer")).clicked() {
                 close = true;
             }
             if ed.dirty {
-                ui.label(egui::RichText::new("●").color(C::ACCENT())).on_hover_text("Modifications non enregistrées");
+                ui.label(egui::RichText::new("●").color(C::ACCENT())).on_hover_text(crate::i18n::tr("Modifications non enregistrées"));
             }
         });
         ui.separator();
@@ -751,7 +751,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             egui::ScrollArea::vertical().id_salt("spleft").max_height(left_h).auto_shrink([true, false]).show(ui, |ui| {
             ui.vertical(|ui| {
                 ui.set_width(210.0);
-                theme::section(ui, "Animations");
+                theme::section(ui, crate::i18n::tr("Animations"));
                 let mut del = None;
                 for k in 0..ed.anims.len() {
                     ui.horizontal(|ui| {
@@ -771,10 +771,10 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     ed.cf = 0;
                     ed.touch();
                 }
-                if ui.add(theme::btn_small("+ Animation")).clicked() {
+                if ui.add(theme::btn_small(crate::i18n::tr("+ Animation"))).clicked() {
                     ed.push_undo();
                     let f = vec![0u8; (ed.w * ed.h * 4) as usize];
-                    let n = format!("Anim{}", ed.anims.len() + 1);
+                    let n = crate::i18n::trf("Anim{0}", &[format!("{}", ed.anims.len() + 1)]);
                     ed.anims.push(AnimEd::new(n, f));
                     ed.ca = ed.anims.len() - 1;
                     ed.cf = 0;
@@ -782,23 +782,23 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
                 let a = &mut ed.anims[ed.ca];
                 egui::Grid::new("anp").num_columns(2).show(ui, |ui| {
-                    ui.label(egui::RichText::new("Nom").color(C::MUTED()));
+                    ui.label(egui::RichText::new(crate::i18n::tr("Nom")).color(C::MUTED()));
                     if ui.add(egui::TextEdit::singleline(&mut a.name).desired_width(110.0)).changed() {
                         ed.dirty = true;
                     }
                     ui.end_row();
-                    ui.label(egui::RichText::new("Images / s").color(C::MUTED()));
+                    ui.label(egui::RichText::new(crate::i18n::tr("Images / s")).color(C::MUTED()));
                     if ui.add(egui::DragValue::new(&mut a.speed).range(0.0..=60.0)).changed() {
                         ed.dirty = true;
                     }
                     ui.end_row();
-                    ui.label(egui::RichText::new("En boucle").color(C::MUTED()));
+                    ui.label(egui::RichText::new(crate::i18n::tr("En boucle")).color(C::MUTED()));
                     if ui.checkbox(&mut a.looping, "").changed() {
                         ed.dirty = true;
                     }
                     ui.end_row();
                 });
-                theme::section(ui, "Couleur");
+                theme::section(ui, crate::i18n::tr("Couleur"));
                 ui.horizontal(|ui| {
                     ui.color_edit_button_srgba(&mut ed.color);
                     ui.label(egui::RichText::new(format!("#{:02x}{:02x}{:02x}", ed.color.r(), ed.color.g(), ed.color.b())).monospace().color(C::MUTED()));
@@ -823,110 +823,110 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         }
                     }
                 });
-                theme::section(ui, "Transformer");
-                ui.label(egui::RichText::new(if ed.sel.is_some() { "S’applique à la sélection" } else { "S’applique à toute l’image" }).size(11.0).color(C::DIM()));
+                theme::section(ui, crate::i18n::tr("Transformer"));
+                ui.label(egui::RichText::new(if ed.sel.is_some() { crate::i18n::tr("S’applique à la sélection") } else { crate::i18n::tr("S’applique à toute l’image") }).size(11.0).color(C::DIM()));
                 ui.horizontal_wrapped(|ui| {
-                    if ui.add(theme::btn_small("↔")).on_hover_text("Retourner horizontalement").clicked() {
+                    if ui.add(theme::btn_small("↔")).on_hover_text(crate::i18n::tr("Retourner horizontalement")).clicked() {
                         ed.apply_op(ROp::FlipH);
                     }
-                    if ui.add(theme::btn_small("↕")).on_hover_text("Retourner verticalement").clicked() {
+                    if ui.add(theme::btn_small("↕")).on_hover_text(crate::i18n::tr("Retourner verticalement")).clicked() {
                         ed.apply_op(ROp::FlipV);
                     }
                     let t = ed.target();
-                    if ui.add_enabled(t[2] == t[3], theme::btn_small("⟳ 90°")).on_hover_text("Rotation d’un quart de tour").on_disabled_hover_text("Zone carrée uniquement").clicked() {
+                    if ui.add_enabled(t[2] == t[3], theme::btn_small("⟳ 90°")).on_hover_text(crate::i18n::tr("Rotation d’un quart de tour")).on_disabled_hover_text(crate::i18n::tr("Zone carrée uniquement")).clicked() {
                         ed.apply_op(ROp::Rot);
                     }
-                    for (n, d, tip) in [("◀", (-1, 0), "Décaler à gauche (bouclé)"), ("▶", (1, 0), "Décaler à droite"), ("▲", (0, -1), "Décaler en haut"), ("▼", (0, 1), "Décaler en bas")] {
+                    for (n, d, tip) in [("◀", (-1, 0), crate::i18n::tr("Décaler à gauche (bouclé)")), ("▶", (1, 0), crate::i18n::tr("Décaler à droite")), ("▲", (0, -1), crate::i18n::tr("Décaler en haut")), ("▼", (0, 1), crate::i18n::tr("Décaler en bas"))] {
                         if ui.add(theme::btn_small(n)).on_hover_text(tip).clicked() {
                             ed.apply_op(ROp::Shift(d.0, d.1));
                         }
                     }
                 });
                 ui.horizontal_wrapped(|ui| {
-                    if ui.add(theme::btn_small("Contour")).on_hover_text("Ajoute un contour d’un pixel, de la couleur courante, autour du dessin").clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("Contour"))).on_hover_text(crate::i18n::tr("Ajoute un contour d’un pixel, de la couleur courante, autour du dessin")).clicked() {
                         let c = ed.color.to_srgba_unmultiplied();
                         ed.apply_op(ROp::Outline(c));
                     }
-                    if ui.add(theme::btn_small("Effacer")).clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("Effacer"))).clicked() {
                         ed.apply_op(ROp::Clear);
                     }
                 });
                 ui.horizontal(|ui| {
-                    ui.color_edit_button_srgba(&mut ed.repl_from).on_hover_text("Couleur à remplacer");
+                    ui.color_edit_button_srgba(&mut ed.repl_from).on_hover_text(crate::i18n::tr("Couleur à remplacer"));
                     ui.label("→");
                     let c = ed.color;
                     let (r, _) = ui.allocate_exact_size(egui::vec2(18.0, 18.0), egui::Sense::hover());
                     ui.painter().rect_filled(r, 3.0, c);
-                    if ui.add(theme::btn_small("Remplacer")).on_hover_text("Remplace la couleur de gauche par la couleur courante").clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("Remplacer"))).on_hover_text(crate::i18n::tr("Remplace la couleur de gauche par la couleur courante")).clicked() {
                         let a = ed.repl_from.to_srgba_unmultiplied();
                         ed.apply_op(ROp::Replace(a, c.to_srgba_unmultiplied()));
                     }
                 });
-                ui.checkbox(&mut ed.all_frames, "Sur toutes les images de l’animation");
+                ui.checkbox(&mut ed.all_frames, crate::i18n::tr("Sur toutes les images de l’animation"));
                 ui.horizontal_wrapped(|ui| {
-                    if ui.add(theme::btn_small("Copier")).on_hover_text("Ctrl+C").clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("Copier"))).on_hover_text(crate::i18n::tr("Ctrl+C")).clicked() {
                         ed.copy_sel(false);
                     }
-                    if ui.add(theme::btn_small("Couper")).on_hover_text("Ctrl+X").clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("Couper"))).on_hover_text(crate::i18n::tr("Ctrl+X")).clicked() {
                         ed.copy_sel(true);
                     }
                     let has = CLIP.lock().unwrap().is_some();
-                    if ui.add_enabled(has, theme::btn_small("Coller")).on_hover_text("Ctrl+V — fonctionne aussi d’un sprite à l’autre").clicked() {
+                    if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Coller"))).on_hover_text(crate::i18n::tr("Ctrl+V — fonctionne aussi d’un sprite à l’autre")).clicked() {
                         ed.paste();
                     }
-                    if ed.sel.is_some() && ui.add(theme::btn_small("Désélectionner")).on_hover_text("Échap").clicked() {
+                    if ed.sel.is_some() && ui.add(theme::btn_small(crate::i18n::tr("Désélectionner"))).on_hover_text(crate::i18n::tr("Échap")).clicked() {
                         ed.sel = None;
                     }
                 });
-                theme::section(ui, "Taille de l’image");
+                theme::section(ui, crate::i18n::tr("Taille de l’image"));
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut ed.nw).range(1..=512));
                     ui.label("×");
                     ui.add(egui::DragValue::new(&mut ed.nh).range(1..=512));
-                    if ui.add_enabled(ed.nw != ed.w || ed.nh != ed.h, theme::btn_small("Appliquer")).clicked() {
+                    if ui.add_enabled(ed.nw != ed.w || ed.nh != ed.h, theme::btn_small(crate::i18n::tr("Appliquer"))).clicked() {
                         ed.push_undo();
                         let (a, b) = (ed.nw, ed.nh);
                         ed.resize(a, b);
                     }
                 });
-                theme::section(ui, "Importer");
-                if ui.add(theme::btn_small("Image dans cette image…")).clicked() {
-                    if let Some(p) = rfd::FileDialog::new().add_filter("Image", &["png", "jpg", "jpeg", "gif", "webp", "bmp"]).pick_file() {
+                theme::section(ui, crate::i18n::tr("Importer"));
+                if ui.add(theme::btn_small(crate::i18n::tr("Image dans cette image…"))).clicked() {
+                    if let Some(p) = rfd::FileDialog::new().add_filter(crate::i18n::tr("Image"), &["png", "jpg", "jpeg", "gif", "webp", "bmp"]).pick_file() {
                         let _ = ed.import(&p, false);
                     }
                 }
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Planche :").color(C::MUTED()));
+                    ui.label(egui::RichText::new(crate::i18n::tr("Planche :")).color(C::MUTED()));
                     ui.selectable_value(&mut ed.sheet_by_size, false, "cases");
                     ui.selectable_value(&mut ed.sheet_by_size, true, "taille");
                 });
                 ui.horizontal(|ui| {
                     if ed.sheet_by_size {
-                        ui.add(egui::DragValue::new(&mut ed.sheet_fw).range(1..=512)).on_hover_text("largeur d’une image (px)");
+                        ui.add(egui::DragValue::new(&mut ed.sheet_fw).range(1..=512)).on_hover_text(crate::i18n::tr("largeur d’une image (px)"));
                         ui.label("×");
-                        ui.add(egui::DragValue::new(&mut ed.sheet_fh).range(1..=512)).on_hover_text("hauteur d’une image (px)");
+                        ui.add(egui::DragValue::new(&mut ed.sheet_fh).range(1..=512)).on_hover_text(crate::i18n::tr("hauteur d’une image (px)"));
                         ui.label(egui::RichText::new("px").color(C::DIM()));
                     } else {
-                        ui.add(egui::DragValue::new(&mut ed.sheet_cols).range(1..=64)).on_hover_text("colonnes");
+                        ui.add(egui::DragValue::new(&mut ed.sheet_cols).range(1..=64)).on_hover_text(crate::i18n::tr("colonnes"));
                         ui.label("×");
-                        ui.add(egui::DragValue::new(&mut ed.sheet_rows).range(1..=64)).on_hover_text("lignes");
+                        ui.add(egui::DragValue::new(&mut ed.sheet_rows).range(1..=64)).on_hover_text(crate::i18n::tr("lignes"));
                     }
                 });
-                ui.checkbox(&mut ed.sheet_new, "Dans une nouvelle animation");
-                ui.checkbox(&mut ed.sheet_skip, "Ignorer les cases vides");
-                if ui.add(theme::btn_small("Découper une planche…")).on_hover_text("Chaque case de la planche devient une image de l’animation").clicked() {
-                    if let Some(p) = rfd::FileDialog::new().add_filter("Image", &["png", "jpg", "jpeg", "gif", "webp", "bmp"]).pick_file() {
+                ui.checkbox(&mut ed.sheet_new, crate::i18n::tr("Dans une nouvelle animation"));
+                ui.checkbox(&mut ed.sheet_skip, crate::i18n::tr("Ignorer les cases vides"));
+                if ui.add(theme::btn_small(crate::i18n::tr("Découper une planche…"))).on_hover_text(crate::i18n::tr("Chaque case de la planche devient une image de l’animation")).clicked() {
+                    if let Some(p) = rfd::FileDialog::new().add_filter(crate::i18n::tr("Image"), &["png", "jpg", "jpeg", "gif", "webp", "bmp"]).pick_file() {
                         let _ = ed.import(&p, true);
                     }
                 }
-                theme::section(ui, "Exporter");
+                theme::section(ui, crate::i18n::tr("Exporter"));
                 ui.horizontal_wrapped(|ui| {
-                    if ui.add(theme::btn_small("Image PNG…")).on_hover_text("Enregistre l’image affichée").clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("Image PNG…"))).on_hover_text(crate::i18n::tr("Enregistre l’image affichée")).clicked() {
                         if let Some(p) = rfd::FileDialog::new().add_filter("PNG", &["png"]).set_file_name(format!("{}.png", ed.name)).save_file() {
                             let _ = std::fs::write(p, png_bytes(&ed.anims[ed.ca].frames[ed.cf], ed.w, ed.h));
                         }
                     }
-                    if ui.add(theme::btn_small("Planche PNG…")).on_hover_text("Toutes les images de l’animation côte à côte").clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("Planche PNG…"))).on_hover_text(crate::i18n::tr("Toutes les images de l’animation côte à côte")).clicked() {
                         if let Some(p) = rfd::FileDialog::new().add_filter("PNG", &["png"]).set_file_name(format!("{}-{}.png", ed.name, ed.anims[ed.ca].name)).save_file() {
                             let fr = &ed.anims[ed.ca].frames;
                             let n = fr.len() as u32;
@@ -938,9 +938,9 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         }
                     }
                 });
-                theme::section(ui, "Collision");
-                egui::ComboBox::from_id_salt("colmode").selected_text(match ed.collision.as_str() { "custom" => "boîte réglée", "poly" => "polygone", _ => "image entière" }).show_ui(ui, |ui| {
-                    for (k, n) in [("auto", "image entière"), ("custom", "boîte réglée"), ("poly", "polygone (gardé tel quel)")] {
+                theme::section(ui, crate::i18n::tr("Collision"));
+                egui::ComboBox::from_id_salt("colmode").selected_text(match ed.collision.as_str() { "custom" => crate::i18n::tr("boîte réglée"), "poly" => "polygone", _ => crate::i18n::tr("image entière") }).show_ui(ui, |ui| {
+                    for (k, n) in [("auto", crate::i18n::tr("image entière")), ("custom", crate::i18n::tr("boîte réglée")), ("poly", crate::i18n::tr("polygone (gardé tel quel)"))] {
                         if ui.selectable_label(ed.collision == k, n).clicked() {
                             ed.collision = k.into();
                             ed.dirty = true;
@@ -950,13 +950,13 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 if ed.collision == "poly" || ed.tool == STool::Poly {
                     let (ca, cf) = (ed.ca, ed.cf);
                     ui.horizontal_wrapped(|ui| {
-                        if ui.add(theme::btn_small("Depuis la boîte")).on_hover_text("Crée un polygone à partir de la boîte de collision").clicked() {
+                        if ui.add(theme::btn_small(crate::i18n::tr("Depuis la boîte"))).on_hover_text(crate::i18n::tr("Crée un polygone à partir de la boîte de collision")).clicked() {
                             ed.push_undo_meta();
                             let b = ed.cbox;
                             ed.anims[ca].poly[cf] = Some(vec![[b[0], b[1]], [b[0] + b[2], b[1]], [b[0] + b[2], b[1] + b[3]], [b[0], b[1] + b[3]]]);
                             ed.collision = "poly".into();
                         }
-                        if ui.add(theme::btn_small("Copier sur toutes les images")).clicked() {
+                        if ui.add(theme::btn_small(crate::i18n::tr("Copier sur toutes les images"))).clicked() {
                             ed.push_undo_meta();
                             let p = ed.anims[ca].poly[cf].clone();
                             for a in ed.anims.iter_mut() {
@@ -965,14 +965,14 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                                 }
                             }
                         }
-                        if ui.add(theme::btn_small("Effacer")).clicked() {
+                        if ui.add(theme::btn_small(crate::i18n::tr("Effacer"))).clicked() {
                             ed.push_undo_meta();
                             ed.anims[ca].poly[cf] = None;
                         }
                     });
-                    ui.label(egui::RichText::new("Outil Polygone : clic = ajouter un sommet, glisser = déplacer, clic droit = supprimer").size(11.0).color(C::DIM()));
+                    ui.label(egui::RichText::new(crate::i18n::tr("Outil Polygone : clic = ajouter un sommet, glisser = déplacer, clic droit = supprimer")).size(11.0).color(C::DIM()));
                 }
-                theme::section(ui, "Points d’image");
+                theme::section(ui, crate::i18n::tr("Points d’image"));
                 let mut delp = None;
                 for k in 0..ed.points.len() {
                     ui.horizontal(|ui| {
@@ -1013,17 +1013,17 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     }
                 }
                 ui.horizontal(|ui| {
-                    if ui.add(theme::btn_small("+ Point")).on_hover_text("Ex. : canon, main… (utilisé par « Créer à un point d’image »)").clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("+ Point"))).on_hover_text(crate::i18n::tr("Ex. : canon, main… (utilisé par « Créer à un point d’image »)")).clicked() {
                         let mut k = ed.points.len() + 1;
-                        while ed.points.contains(&format!("Point{}", k)) {
+                        while ed.points.contains(&crate::i18n::trf("Point{0}", &[format!("{}", k)])) {
                             k += 1;
                         }
-                        ed.points.push(format!("Point{}", k));
+                        ed.points.push(crate::i18n::trf("Point{0}", &[format!("{}", k)]));
                         ed.cur_pt = ed.points.len() - 1;
                         ed.tool = STool::Point;
                         ed.dirty = true;
                     }
-                    if !ed.points.is_empty() && ui.add(theme::btn_small("Sur toutes les images")).on_hover_text("Recopie la position du point de cette image sur toutes les images de l’animation").clicked() {
+                    if !ed.points.is_empty() && ui.add(theme::btn_small(crate::i18n::tr("Sur toutes les images"))).on_hover_text(crate::i18n::tr("Recopie la position du point de cette image sur toutes les images de l’animation")).clicked() {
                         ed.push_undo_meta();
                         let n = ed.points[ed.cur_pt].clone();
                         let (ca, cf) = (ed.ca, ed.cf);
@@ -1037,7 +1037,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         }
                     }
                 });
-                ui.label(egui::RichText::new(format!("Origine ({:.0}, {:.0}) · boîte {:.0},{:.0} {:.0}×{:.0}", ed.ox, ed.oy, ed.cbox[0], ed.cbox[1], ed.cbox[2], ed.cbox[3])).size(11.0).color(C::DIM()));
+                ui.label(egui::RichText::new(crate::i18n::trf("Origine ({0}, {1}) · boîte {2},{3} {4}×{5}", &[format!("{:.0}", ed.ox), format!("{:.0}", ed.oy), format!("{:.0}", ed.cbox[0]), format!("{:.0}", ed.cbox[1]), format!("{:.0}", ed.cbox[2]), format!("{:.0}", ed.cbox[3])])).size(11.0).color(C::DIM()));
             });
             });
             ui.separator();
@@ -1056,7 +1056,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
         }
         ed.dirty = false;
         app.changed();
-        app.toast("Sprite enregistré.", false, now);
+        app.toast(crate::i18n::tr("Sprite enregistré."), false, now);
     }
     if open && !close {
         app.sprite = Some(ed);
@@ -1441,7 +1441,7 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
 }
 
 fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
-    theme::section(ui, &format!("Images de « {} »", ed.anims[ed.ca].name));
+    theme::section(ui, &crate::i18n::trf("Images de « {0} »", &[format!("{}", ed.anims[ed.ca].name)]));
     let n = ed.anims[ed.ca].frames.len();
     egui::ScrollArea::horizontal().id_salt("frs").show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -1471,7 +1471,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
     ui.horizontal(|ui| {
         let w = ed.w;
         let h = ed.h;
-        if ui.add(theme::btn_small("+ Image vide")).clicked() {
+        if ui.add(theme::btn_small(crate::i18n::tr("+ Image vide"))).clicked() {
             ed.push_undo();
             let ca = ed.ca;
             let k = ed.cf + 1;
@@ -1479,7 +1479,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             ed.cf += 1;
             ed.touch();
         }
-        if ui.add(theme::btn_small("Dupliquer")).clicked() {
+        if ui.add(theme::btn_small(crate::i18n::tr("Dupliquer"))).clicked() {
             ed.push_undo();
             let ca = ed.ca;
             let f = ed.anims[ca].frames[ed.cf].clone();
@@ -1488,7 +1488,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             ed.cf += 1;
             ed.touch();
         }
-        if ui.add_enabled(ed.cf > 0, theme::btn_small("◀ Déplacer")).clicked() {
+        if ui.add_enabled(ed.cf > 0, theme::btn_small(crate::i18n::tr("◀ Déplacer"))).clicked() {
             ed.push_undo();
             let ca = ed.ca;
             let k = ed.cf;
@@ -1496,7 +1496,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             ed.cf -= 1;
             ed.touch();
         }
-        if ui.add_enabled(ed.cf + 1 < n, theme::btn_small("Déplacer ▶")).clicked() {
+        if ui.add_enabled(ed.cf + 1 < n, theme::btn_small(crate::i18n::tr("Déplacer ▶"))).clicked() {
             ed.push_undo();
             let ca = ed.ca;
             let k = ed.cf;
@@ -1504,7 +1504,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             ed.cf += 1;
             ed.touch();
         }
-        if ui.add_enabled(n > 1, theme::btn_small("Supprimer")).clicked() {
+        if ui.add_enabled(n > 1, theme::btn_small(crate::i18n::tr("Supprimer"))).clicked() {
             ed.push_undo();
             let ca = ed.ca;
             let k = ed.cf;
@@ -1512,7 +1512,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             ed.cf = ed.cf.min(ed.anims[ca].frames.len() - 1);
             ed.touch();
         }
-        if ui.add(theme::btn_small("Miroir ↔")).clicked() {
+        if ui.add(theme::btn_small(crate::i18n::tr("Miroir ↔"))).clicked() {
             ed.push_undo();
             let (w, h) = (ed.w as usize, ed.h as usize);
             let f = ed.px();
@@ -1525,7 +1525,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             }
             ed.touch();
         }
-        if ui.add(theme::btn_small("Effacer l’image")).clicked() {
+        if ui.add(theme::btn_small(crate::i18n::tr("Effacer l’image"))).clicked() {
             ed.push_undo();
             ed.px().fill(0);
             ed.touch();
@@ -1538,7 +1538,7 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
         let k = ((t * a.speed) as usize) % a.frames.len();
         if let Some(th) = ed.thumbs.iter().find(|x| x.1 == ed.ca && x.2 == k) {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("Aperçu :").color(C::MUTED()));
+                ui.label(egui::RichText::new(crate::i18n::tr("Aperçu :")).color(C::MUTED()));
                 let s = 64.0 / ed.w.max(ed.h) as f32;
                 ui.image((th.3.id(), egui::vec2(ed.w as f32 * s, ed.h as f32 * s)));
             });

@@ -161,33 +161,33 @@ pub fn window(app: &mut App, ctx: &egui::Context) {
     let mut goto: Option<Hit> = None;
     let mut do_rep = false;
     let (dsz, msz) = theme::fit(ctx, 560.0, 560.0);
-    egui::Window::new("Rechercher / remplacer").id(egui::Id::new("find")).open(&mut open).default_size(dsz).max_size(msz).constrain(true).show(ctx, |ui| {
+    egui::Window::new(crate::i18n::tr("Rechercher / remplacer")).id(egui::Id::new("find")).open(&mut open).default_size(dsz).max_size(msz).constrain(true).show(ctx, |ui| {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Rechercher").color(C::MUTED()));
-            let r = ui.add(egui::TextEdit::singleline(&mut st.q).desired_width(240.0).hint_text("nom, variable, texte, expression…"));
+            ui.label(RichText::new(crate::i18n::tr("Rechercher")).color(C::MUTED()));
+            let r = ui.add(egui::TextEdit::singleline(&mut st.q).desired_width(240.0).hint_text(crate::i18n::tr("nom, variable, texte, expression…")));
             if r.gained_focus() || st.q.is_empty() {
                 r.request_focus();
             }
-            ui.checkbox(&mut st.case, "Respecter la casse");
+            ui.checkbox(&mut st.case, crate::i18n::tr("Respecter la casse"));
         });
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Remplacer par").color(C::MUTED()));
+            ui.label(RichText::new(crate::i18n::tr("Remplacer par")).color(C::MUTED()));
             ui.add(egui::TextEdit::singleline(&mut st.r).desired_width(200.0));
-            if ui.add_enabled(!st.q.is_empty(), theme::btn("Remplacer tout")).on_hover_text("Dans les conditions, actions, commentaires et textes des instances").clicked() {
+            if ui.add_enabled(!st.q.is_empty(), theme::btn(crate::i18n::tr("Remplacer tout"))).on_hover_text(crate::i18n::tr("Dans les conditions, actions, commentaires et textes des instances")).clicked() {
                 do_rep = true;
             }
         });
-        ui.label(RichText::new("Pour renommer un objet ou une variable sans rien casser, modifiez plutôt son nom dans le panneau Propriétés : toutes les expressions sont mises à jour.").size(11.0).color(C::DIM()));
+        ui.label(RichText::new(crate::i18n::tr("Pour renommer un objet ou une variable sans rien casser, modifiez plutôt son nom dans le panneau Propriétés : toutes les expressions sont mises à jour.")).size(11.0).color(C::DIM()));
         ui.separator();
         let hits = search(app, &st.q, st.case);
-        ui.label(RichText::new(format!("{} résultat(s)", hits.len())).color(C::MUTED()));
+        ui.label(RichText::new(crate::i18n::trf("{0} résultat(s)", &[format!("{}", hits.len())])).color(C::MUTED()));
         egui::ScrollArea::vertical().max_height((ui.available_height() - 8.0).max(120.0)).show(ui, |ui| {
             for h in hits {
                 let (tag, txt) = match &h {
                     Hit::Ev { sheet, txt, .. } => (format!("☰ {}", app.proj.arr("sheets").iter().find(|s| s.s("id") == sheet).map(|s| s.s("name")).unwrap_or("?")), txt.clone()),
-                    Hit::Obj { txt, .. } => ("Objet".to_string(), txt.clone()),
-                    Hit::Global { name } => ("Variable".to_string(), name.clone()),
-                    Hit::Inst { txt, .. } => ("Instance".to_string(), txt.clone()),
+                    Hit::Obj { txt, .. } => (crate::i18n::tr("Objet").to_string(), txt.clone()),
+                    Hit::Global { name } => (crate::i18n::tr("Variable").to_string(), name.clone()),
+                    Hit::Inst { txt, .. } => (crate::i18n::tr("Instance").to_string(), txt.clone()),
                 };
                 let r = ui.add(egui::Button::new(RichText::new(format!("{}   {}", tag, txt)).color(C::TEXT2())).frame(false));
                 if r.clicked() {
@@ -200,7 +200,7 @@ pub fn window(app: &mut App, ctx: &egui::Context) {
         app.snapshot();
         let n = replace_all(app, &st.q, &st.r, st.case);
         app.changed();
-        app.toast(format!("{} remplacement(s) — Ctrl+Z pour annuler", n), false, 0.0);
+        app.toast(crate::i18n::trf("{0} remplacement(s) — Ctrl+Z pour annuler", &[format!("{}", n)]), false, 0.0);
     }
     if let Some(h) = goto {
         match h {

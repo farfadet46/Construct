@@ -32,13 +32,13 @@ pub fn toolbar(app: &mut App, ui: &mut egui::Ui) {
     if !is_tm && app.view.tool == Tool::Paint || !is_path && app.view.tool == Tool::Path {
         app.view.tool = Tool::Select;
     }
-    if ui.add(theme::tab(app.view.tool == Tool::Select, "⬉ Sélection")).clicked() {
+    if ui.add(theme::tab(app.view.tool == Tool::Select, crate::i18n::tr("⬉ Sélection"))).clicked() {
         app.view.tool = Tool::Select;
     }
-    if ui.add_enabled(is_tm, theme::tab(app.view.tool == Tool::Paint, "✎ Peindre les tuiles")).on_disabled_hover_text("Sélectionnez une carte de tuiles").clicked() {
+    if ui.add_enabled(is_tm, theme::tab(app.view.tool == Tool::Paint, crate::i18n::tr("✎ Peindre les tuiles"))).on_disabled_hover_text(crate::i18n::tr("Sélectionnez une carte de tuiles")).clicked() {
         app.view.tool = Tool::Paint;
     }
-    if ui.add_enabled(is_path, theme::tab(app.view.tool == Tool::Path, "〰 Trajectoire")).on_disabled_hover_text("Sélectionnez une instance qui a le comportement Trajectoire").clicked() {
+    if ui.add_enabled(is_path, theme::tab(app.view.tool == Tool::Path, crate::i18n::tr("〰 Trajectoire"))).on_disabled_hover_text(crate::i18n::tr("Sélectionnez une instance qui a le comportement Trajectoire")).clicked() {
         app.view.tool = Tool::Path;
     }
 }
@@ -382,15 +382,15 @@ pub fn overlay(app: &App, painter: &egui::Painter) {
             }
         }
         if active {
-            painter.text(app.view.rect.left_bottom() + egui::vec2(10.0, -10.0), egui::Align2::LEFT_BOTTOM, "Clic : ajouter un point · glisser : déplacer · clic droit : supprimer", egui::FontId::proportional(13.0), C::ACCENT_H());
+            painter.text(app.view.rect.left_bottom() + egui::vec2(10.0, -10.0), egui::Align2::LEFT_BOTTOM, crate::i18n::tr("Clic : ajouter un point · glisser : déplacer · clic droit : supprimer"), egui::FontId::proportional(13.0), C::ACCENT_H());
         }
     }
     if o.s("kind") == "tilemap" && app.view.tool == Tool::Paint {
         painter.text(app.view.rect.left_bottom() + egui::vec2(10.0, -10.0), egui::Align2::LEFT_BOTTOM, match app.view.tmode {
-            1 => "Glisser : remplir un rectangle · clic droit glissé : effacer · Alt+clic : pipette",
-            2 => "Clic : remplir la zone · clic droit : effacer · Alt+clic : pipette",
-            3 => "Terrain : peignez, les bords et les coins se placent tout seuls · clic droit : effacer",
-            _ => "Clic : peindre · clic droit : effacer · Alt+clic : reprendre une tuile · glisser dans la palette : tampon",
+            1 => crate::i18n::tr("Glisser : remplir un rectangle · clic droit glissé : effacer · Alt+clic : pipette"),
+            2 => crate::i18n::tr("Clic : remplir la zone · clic droit : effacer · Alt+clic : pipette"),
+            3 => crate::i18n::tr("Terrain : peignez, les bords et les coins se placent tout seuls · clic droit : effacer"),
+            _ => crate::i18n::tr("Clic : peindre · clic droit : effacer · Alt+clic : reprendre une tuile · glisser dans la palette : tampon"),
         }, egui::FontId::proportional(13.0), C::ACCENT_H());
     }
 }
@@ -402,14 +402,14 @@ pub fn palette(app: &mut App, ui: &mut egui::Ui, inst_id: &str) {
         None => return,
     };
     let _ = inst_id;
-    theme::section(ui, "Carte de tuiles");
+    theme::section(ui, crate::i18n::tr("Carte de tuiles"));
     let (cols, rows) = tm_dims(&i, &o);
     let mut nc = cols;
     let mut nr = rows;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Colonnes").color(C::MUTED()));
+        ui.label(egui::RichText::new(crate::i18n::tr("Colonnes")).color(C::MUTED()));
         ui.add(egui::DragValue::new(&mut nc).range(1..=1000));
-        ui.label(egui::RichText::new("Lignes").color(C::MUTED()));
+        ui.label(egui::RichText::new(crate::i18n::tr("Lignes")).color(C::MUTED()));
         ui.add(egui::DragValue::new(&mut nr).range(1..=1000));
     });
     if nc != cols || nr != rows {
@@ -432,12 +432,12 @@ pub fn palette(app: &mut App, ui: &mut egui::Ui, inst_id: &str) {
         app.changed();
     }
     if app.view.tool != Tool::Paint {
-        if ui.add(theme::btn_accent("✎ Peindre les tuiles")).clicked() {
+        if ui.add(theme::btn_accent(crate::i18n::tr("✎ Peindre les tuiles"))).clicked() {
             app.view.tool = Tool::Paint;
         }
     }
     ui.horizontal_wrapped(|ui| {
-        for (m, n, tip) in [(0u8, "✎ Pinceau", "Peint la tuile (ou le tampon) choisie"), (1, "▭ Rectangle", "Glisser pour remplir un rectangle"), (2, "◍ Remplir", "Remplit une zone de tuiles identiques"), (3, "◢ Terrain", "Terrain automatique : choisissez le coin haut-gauche d’un bloc 3×3 de tuiles (bords et coins)")] {
+        for (m, n, tip) in [(0u8, crate::i18n::tr("✎ Pinceau"), crate::i18n::tr("Peint la tuile (ou le tampon) choisie")), (1, crate::i18n::tr("▭ Rectangle"), crate::i18n::tr("Glisser pour remplir un rectangle")), (2, crate::i18n::tr("◍ Remplir"), crate::i18n::tr("Remplit une zone de tuiles identiques")), (3, crate::i18n::tr("◢ Terrain"), crate::i18n::tr("Terrain automatique : choisissez le coin haut-gauche d’un bloc 3×3 de tuiles (bords et coins)"))] {
             if ui.add(theme::tab(app.view.tmode == m, n)).on_hover_text(tip).clicked() {
                 app.view.tmode = m;
                 app.view.tool = Tool::Paint;
@@ -469,7 +469,7 @@ pub fn palette(app: &mut App, ui: &mut egui::Ui, inst_id: &str) {
         }
     };
     let cell = 34.0f32;
-    ui.label(egui::RichText::new("Clic : une tuile · glisser : plusieurs tuiles (tampon)").size(11.0).color(C::DIM()));
+    ui.label(egui::RichText::new(crate::i18n::tr("Clic : une tuile · glisser : plusieurs tuiles (tampon)")).size(11.0).color(C::DIM()));
     egui::Grid::new("tiles").spacing([3.0, 3.0]).show(ui, |ui| {
         for r in 0..tr {
             for c in 0..tc {
@@ -508,15 +508,15 @@ pub fn palette(app: &mut App, ui: &mut egui::Ui, inst_id: &str) {
         app.view.pal_anchor = None;
     }
     if app.view.tmode == 3 {
-        ui.label(egui::RichText::new("Terrain : le bloc 3×3 doit contenir, dans l’ordre, coin haut-gauche, bord haut, coin haut-droit, puis bords gauche / centre / droit, puis la rangée du bas.").size(11.0).color(C::DIM()));
+        ui.label(egui::RichText::new(crate::i18n::tr("Terrain : le bloc 3×3 doit contenir, dans l’ordre, coin haut-gauche, bord haut, coin haut-droit, puis bords gauche / centre / droit, puis la rangée du bas.")).size(11.0).color(C::DIM()));
     } else if app.view.stamp != (1, 1) {
-        ui.label(egui::RichText::new(format!("Tampon de {} × {} tuiles", app.view.stamp.0, app.view.stamp.1)).size(11.0).color(C::ACCENT()));
+        ui.label(egui::RichText::new(crate::i18n::trf("Tampon de {0} × {1} tuiles", &[format!("{}", app.view.stamp.0), format!("{}", app.view.stamp.1)])).size(11.0).color(C::ACCENT()));
     }
     // type de collision de la tuile choisie
-    let types = pf_core::catalog::catalog()["TILETYPES"].as_array().cloned().unwrap_or_default();
+    let types = pf_core::catalog::ui_catalog()["TILETYPES"].as_array().cloned().unwrap_or_default();
     let cur = o.get("tcol").and_then(|t| t.get(app.view.tile.to_string())).and_then(|v| v.as_str()).unwrap_or("s").to_string();
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(format!("Tuile n°{} :", app.view.tile)).color(C::MUTED()));
+        ui.label(egui::RichText::new(crate::i18n::trf("Tuile n°{0} :", &[format!("{}", app.view.tile)])).color(C::MUTED()));
         let lab = types.iter().find(|t| t[0].as_str() == Some(&cur)).and_then(|t| t[1].as_str()).unwrap_or(&cur).to_string();
         egui::ComboBox::from_id_salt("tcol").selected_text(lab).show_ui(ui, |ui| {
             for t in &types {
@@ -544,14 +544,14 @@ pub fn path_panel(app: &mut App, ui: &mut egui::Ui, inst_id: &str) {
         Some(x) => x,
         None => return,
     };
-    theme::section(ui, "Trajectoire");
+    theme::section(ui, crate::i18n::tr("Trajectoire"));
     let n = i.arr("path").len();
-    ui.label(egui::RichText::new(format!("{} point(s) en plus du départ", n)).color(C::MUTED()));
+    ui.label(egui::RichText::new(crate::i18n::trf("{0} point(s) en plus du départ", &[format!("{}", n)])).color(C::MUTED()));
     ui.horizontal(|ui| {
-        if ui.add(if app.view.tool == Tool::Path { theme::btn("Terminer") } else { theme::btn_accent("〰 Modifier la trajectoire") }).clicked() {
+        if ui.add(if app.view.tool == Tool::Path { theme::btn(crate::i18n::tr("Terminer")) } else { theme::btn_accent(crate::i18n::tr("〰 Modifier la trajectoire")) }).clicked() {
             app.view.tool = if app.view.tool == Tool::Path { Tool::Select } else { Tool::Path };
         }
-        if ui.add_enabled(n > 0, theme::btn_small("Effacer")).clicked() {
+        if ui.add_enabled(n > 0, theme::btn_small(crate::i18n::tr("Effacer"))).clicked() {
             app.snapshot();
             if let Some(ii) = app.inst_mut(inst_id) {
                 ii["path"] = json!([]);

@@ -23,7 +23,7 @@ impl ExportState {
                 o[k] = v.clone();
             }
         }
-        o["title"] = Json::String(if s.s("title").is_empty() { "Mon jeu".into() } else { s.s("title").to_string() });
+        o["title"] = Json::String(if s.s("title").is_empty() { crate::i18n::tr("Mon jeu").into() } else { s.s("title").to_string() });
         let format = o.s("format").to_string();
         ExportState { format: if format.is_empty() { "html".into() } else { format }, o }
     }
@@ -73,24 +73,9 @@ pub fn build_html(app: &App, ex: &Json, pwa: bool) -> String {
     let js = serde_json::to_string(&data).unwrap_or_default().replace('<', "\\u003c");
     let ico = format!("data:image/png;base64,{}", pf_core::b64_encode(&icon(app, ex, 64)));
     let bg = esc(if ex.s("bg").is_empty() { "#0d0f13" } else { ex.s("bg") });
-    let head = format!(
-        "<link rel=\"icon\" href=\"{}\">\n{}<meta name=\"theme-color\" content=\"{}\">\n",
-        if pwa { "icon-192.png".to_string() } else { ico },
-        if pwa { "<link rel=\"manifest\" href=\"manifest.webmanifest\">\n<link rel=\"apple-touch-icon\" href=\"icon-192.png\">\n<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n" } else { "" },
-        bg
-    );
+    let head = crate::i18n::trf("<link rel=\"icon\" href=\"{0}\">\n{1}<meta name=\"theme-color\" content=\"{2}\">\n", &[format!("{}", if pwa { "icon-192.png".to_string() } else { ico }), format!("{}", if pwa { "<link rel=\"manifest\" href=\"manifest.webmanifest\">\n<link rel=\"apple-touch-icon\" href=\"icon-192.png\">\n<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n" } else { "" }), format!("{}", bg)]);
     let b = |k: &str| if pf_runtime::rt::jtruthy(ex.get(k)) { "true" } else { "false" };
-    format!(
-        "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no\">\n<meta name=\"generator\" content=\"PlatForge Studio (Rust)\">\n<title>{}</title>\n{}<style>html,body{{margin:0;height:100%;background:{};overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}}#game{{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}}</style>\n</head>\n<body>\n<canvas id=\"game\" tabindex=\"0\"></canvas>\n<script type=\"application/json\" id=\"platforge-data\">{}</script>\n<script>{}</script>\n<script>PF.Runtime(document.getElementById(\"game\"),JSON.parse(document.getElementById(\"platforge-data\").textContent),{{touch:{},splash:{}}});document.getElementById(\"game\").focus();{}</script>\n</body>\n</html>\n",
-        esc(ex.s("title")),
-        head,
-        bg,
-        js,
-        RUNTIME_JS,
-        b("touch"),
-        b("splash"),
-        if pwa { "if(\"serviceWorker\" in navigator&&location.protocol!==\"file:\")navigator.serviceWorker.register(\"sw.js\").catch(function(){});" } else { "" }
-    )
+    crate::i18n::trf("<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no\">\n<meta name=\"generator\" content=\"PlatForge Studio (Rust)\">\n<title>{0}</title>\n{1}<style>html,body{{margin:0;height:100%;background:{2};overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}}#game{{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}}</style>\n</head>\n<body>\n<canvas id=\"game\" tabindex=\"0\"></canvas>\n<script type=\"application/json\" id=\"platforge-data\">{3}</script>\n<script>{4}</script>\n<script>PF.Runtime(document.getElementById(\"game\"),JSON.parse(document.getElementById(\"platforge-data\").textContent),{{touch:{5},splash:{6}}});document.getElementById(\"game\").focus();{7}</script>\n</body>\n</html>\n", &[format!("{}", esc(ex.s("title"))), format!("{}", head), format!("{}", bg), format!("{}", js), format!("{}", RUNTIME_JS), format!("{}", b("touch")), format!("{}", b("splash")), format!("{}", if pwa { "if(\"serviceWorker\" in navigator&&location.protocol!==\"file:\")navigator.serviceWorker.register(\"sw.js\").catch(function(){});" } else { "" })])
 }
 
 // ---- zip (stockage simple, sans compression)
@@ -159,23 +144,23 @@ fn do_export(app: &mut App, st: &ExportState, now: f64) {
     let ex = &st.o;
     let name = crate::util::slug(ex.s("title"));
     let r: Result<String, String> = match st.format.as_str() {
-        "html" => match rfd::FileDialog::new().add_filter("Page web", &["html"]).set_file_name(format!("{}.html", name)).save_file() {
+        "html" => match rfd::FileDialog::new().add_filter(crate::i18n::tr("Page web"), &["html"]).set_file_name(format!("{}.html", name)).save_file() {
             Some(p) => std::fs::write(&p, build_html(app, ex, false)).map(|_| p.display().to_string()).map_err(|e| e.to_string()),
             None => return,
         },
-        "pwa" => match rfd::FileDialog::new().add_filter("Archive zip", &["zip"]).set_file_name(format!("{}-web.zip", name)).save_file() {
+        "pwa" => match rfd::FileDialog::new().add_filter(crate::i18n::tr("Archive zip"), &["zip"]).set_file_name(format!("{}-web.zip", name)).save_file() {
             Some(p) => {
                 let man = json!({"name":ex.s("title"),"short_name":ex.s("title").chars().take(12).collect::<String>(),"start_url":".","scope":".","display":"fullscreen","orientation":"landscape","background_color":ex.s("bg"),"theme_color":ex.s("bg"),"icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]});
                 let ver = format!("{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0));
-                let sw = format!("var C='{}-{}',F=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png'];\nself.addEventListener('install',function(e){{e.waitUntil(caches.open(C).then(function(c){{return c.addAll(F);}}).then(function(){{return self.skipWaiting();}}));}});\nself.addEventListener('activate',function(e){{e.waitUntil(caches.keys().then(function(k){{return Promise.all(k.filter(function(x){{return x!==C;}}).map(function(x){{return caches.delete(x);}}));}}).then(function(){{return self.clients.claim();}}));}});\nself.addEventListener('fetch',function(e){{e.respondWith(caches.match(e.request).then(function(r){{return r||fetch(e.request);}}));}});\n", name, ver);
-                let readme = format!("« {} » — jeu créé avec PlatForge Studio\n\nCe dossier est un jeu web installable (PWA).\n\n• Pour jouer tout de suite : ouvrez index.html dans un navigateur.\n• Pour le publier : envoyez TOUS les fichiers sur un hébergement web en HTTPS\n  (itch.io en « HTML », GitHub Pages, Netlify, votre site…).\n  Une fois en ligne, le navigateur propose « Installer » : le jeu s’ouvre alors\n  comme une application et fonctionne même sans connexion.\n", ex.s("title"));
+                let sw = crate::i18n::trf("var C='{0}-{1}',F=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png'];\nself.addEventListener('install',function(e){{e.waitUntil(caches.open(C).then(function(c){{return c.addAll(F);}}).then(function(){{return self.skipWaiting();}}));}});\nself.addEventListener('activate',function(e){{e.waitUntil(caches.keys().then(function(k){{return Promise.all(k.filter(function(x){{return x!==C;}}).map(function(x){{return caches.delete(x);}}));}}).then(function(){{return self.clients.claim();}}));}});\nself.addEventListener('fetch',function(e){{e.respondWith(caches.match(e.request).then(function(r){{return r||fetch(e.request);}}));}});\n", &[format!("{}", name), format!("{}", ver)]);
+                let readme = crate::i18n::trf("« {0} » — jeu créé avec PlatForge Studio\n\nCe dossier est un jeu web installable (PWA).\n\n• Pour jouer tout de suite : ouvrez index.html dans un navigateur.\n• Pour le publier : envoyez TOUS les fichiers sur un hébergement web en HTTPS\n  (itch.io en « HTML », GitHub Pages, Netlify, votre site…).\n  Une fois en ligne, le navigateur propose « Installer » : le jeu s’ouvre alors\n  comme une application et fonctionne même sans connexion.\n", &[format!("{}", ex.s("title"))]);
                 let files = vec![
                     ("index.html".to_string(), build_html(app, ex, true).into_bytes()),
                     ("manifest.webmanifest".to_string(), serde_json::to_string_pretty(&man).unwrap_or_default().into_bytes()),
                     ("sw.js".to_string(), sw.into_bytes()),
                     ("icon-192.png".to_string(), icon(app, ex, 192)),
                     ("icon-512.png".to_string(), icon(app, ex, 512)),
-                    ("LISEZMOI.txt".to_string(), readme.into_bytes()),
+                    (crate::i18n::tr("LISEZMOI.txt").to_string(), readme.into_bytes()),
                 ];
                 std::fs::write(&p, make_zip(&files)).map(|_| p.display().to_string()).map_err(|e| e.to_string())
             }
@@ -187,8 +172,8 @@ fn do_export(app: &mut App, st: &ExportState, now: f64) {
         }
     };
     match r {
-        Ok(p) => app.toast(format!("Jeu exporté : {}", p), false, now),
-        Err(e) => app.toast(format!("Export impossible : {}", e), true, now),
+        Ok(p) => app.toast(crate::i18n::trf("Jeu exporté : {0}", &[format!("{}", p)]), false, now),
+        Err(e) => app.toast(crate::i18n::trf("Export impossible : {0}", &[format!("{}", e)]), true, now),
     }
 }
 
@@ -200,11 +185,11 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
     let mut open = true;
     let mut go = false;
     let (dsz, msz) = theme::fit(ctx, 520.0, 560.0);
-    egui::Window::new("Exporter le jeu").id(egui::Id::new("export")).open(&mut open).collapsible(false).default_width(dsz.x).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
+    egui::Window::new(crate::i18n::tr("Exporter le jeu")).id(egui::Id::new("export")).open(&mut open).collapsible(false).default_width(dsz.x).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
         for (k, n, d) in [
-            ("html", "Page web (un seul fichier .html)", "Le plus simple : un fichier à ouvrir dans n’importe quel navigateur, à envoyer par mail ou à déposer sur itch.io."),
-            ("pwa", "Jeu web installable (PWA, .zip)", "À mettre en ligne (itch.io, GitHub Pages, Netlify…) : le navigateur propose « Installer » et le jeu marche hors connexion, aussi sur mobile."),
-            ("native", "Application de bureau", "Une copie de PlatForge qui lance directement votre jeu, pour ce système (Windows, macOS ou Linux)."),
+            ("html", crate::i18n::tr("Page web (un seul fichier .html)"), crate::i18n::tr("Le plus simple : un fichier à ouvrir dans n’importe quel navigateur, à envoyer par mail ou à déposer sur itch.io.")),
+            ("pwa", crate::i18n::tr("Jeu web installable (PWA, .zip)"), crate::i18n::tr("À mettre en ligne (itch.io, GitHub Pages, Netlify…) : le navigateur propose « Installer » et le jeu marche hors connexion, aussi sur mobile.")),
+            ("native", crate::i18n::tr("Application de bureau"), crate::i18n::tr("Une copie de PlatForge qui lance directement votre jeu, pour ce système (Windows, macOS ou Linux).")),
         ] {
             ui.radio_value(&mut st.format, k.to_string(), RichText::new(n).strong());
             ui.label(RichText::new(d).size(11.0).color(C::DIM()));
@@ -213,13 +198,13 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
         ui.separator();
         if st.format != "native" {
             egui::Grid::new("exg").num_columns(2).spacing([10.0, 6.0]).show(ui, |ui| {
-                ui.label(RichText::new("Titre").color(C::MUTED()));
+                ui.label(RichText::new(crate::i18n::tr("Titre")).color(C::MUTED()));
                 let mut t = st.o.s("title").to_string();
                 if ui.add(egui::TextEdit::singleline(&mut t).desired_width(240.0)).changed() {
                     st.o["title"] = Json::String(t);
                 }
                 ui.end_row();
-                for (k, l) in [("bg", "Couleur de fond"), ("accent", "Couleur d’accent")] {
+                for (k, l) in [("bg", crate::i18n::tr("Couleur de fond")), ("accent", crate::i18n::tr("Couleur d’accent"))] {
                     ui.label(RichText::new(l).color(C::MUTED()));
                     let mut c = theme::color32(st.o.s(k));
                     if ui.color_edit_button_srgba(&mut c).changed() {
@@ -227,7 +212,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     }
                     ui.end_row();
                 }
-                for (k, l) in [("splash", "Écran « Cliquez pour jouer » (nécessaire pour le son sur le web)"), ("touch", "Boutons tactiles sur mobile"), ("showTitle", "Afficher le titre au chargement")] {
+                for (k, l) in [("splash", crate::i18n::tr("Écran « Cliquez pour jouer » (nécessaire pour le son sur le web)")), ("touch", crate::i18n::tr("Boutons tactiles sur mobile")), ("showTitle", crate::i18n::tr("Afficher le titre au chargement"))] {
                     ui.label(RichText::new(l).color(C::MUTED()));
                     let mut b = st.o.get(k) != Some(&Json::Bool(false));
                     if ui.checkbox(&mut b, "").changed() {
@@ -235,12 +220,12 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     }
                     ui.end_row();
                 }
-                for (k, l) in [("logo", "Logo de l’écran de chargement"), ("icon", "Icône du jeu")] {
+                for (k, l) in [("logo", crate::i18n::tr("Logo de l’écran de chargement")), ("icon", crate::i18n::tr("Icône du jeu"))] {
                     ui.label(RichText::new(l).color(C::MUTED()));
                     let cur = st.o.s(k).to_string();
-                    let nm = app.obj(&cur).map(|o| o.s("name").to_string()).unwrap_or_else(|| "(aucun)".into());
+                    let nm = app.obj(&cur).map(|o| o.s("name").to_string()).unwrap_or_else(|| crate::i18n::tr("(aucun)").into());
                     egui::ComboBox::from_id_salt(k).selected_text(nm).show_ui(ui, |ui| {
-                        if ui.selectable_label(cur.is_empty(), "(aucun)").clicked() {
+                        if ui.selectable_label(cur.is_empty(), crate::i18n::tr("(aucun)")).clicked() {
                             st.o[k] = json!("");
                         }
                         for o in app.proj.arr("objects").iter().filter(|o| o.s("kind") == "sprite") {
@@ -254,7 +239,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             });
         }
         ui.add_space(6.0);
-        if ui.add(theme::btn_accent("Exporter…")).clicked() {
+        if ui.add(theme::btn_accent(crate::i18n::tr("Exporter…"))).clicked() {
             go = true;
         }
     });

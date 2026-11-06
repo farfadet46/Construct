@@ -169,7 +169,7 @@ impl SndLib {
 }
 
 fn import_files(app: &mut App) {
-    let Some(ps) = rfd::FileDialog::new().add_filter("Audio", &["wav", "mp3", "ogg", "flac", "m4a"]).pick_files() else { return };
+    let Some(ps) = rfd::FileDialog::new().add_filter(crate::i18n::tr("Audio"), &["wav", "mp3", "ogg", "flac", "m4a"]).pick_files() else { return };
     let mut added = 0;
     app.snapshot();
     for p in ps {
@@ -212,23 +212,23 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
     if !Preview::playing(app) {
         lib.playing = None;
     }
-    egui::Window::new("Bibliothèque de sons").id(egui::Id::new("sndlib")).open(&mut open).default_size(dsz).max_size(msz).min_size([480.0, 300.0]).resizable(true).constrain(true).show(ctx, |ui| {
+    egui::Window::new(crate::i18n::tr("Bibliothèque de sons")).id(egui::Id::new("sndlib")).open(&mut open).default_size(dsz).max_size(msz).min_size([480.0, 300.0]).resizable(true).constrain(true).show(ctx, |ui| {
         ui.horizontal_wrapped(|ui| {
-            if ui.add(theme::btn_accent("+ Importer…")).on_hover_text("Plusieurs fichiers à la fois (wav, mp3, ogg, flac, m4a)").clicked() {
+            if ui.add(theme::btn_accent(crate::i18n::tr("+ Importer…"))).on_hover_text(crate::i18n::tr("Plusieurs fichiers à la fois (wav, mp3, ogg, flac, m4a)")).clicked() {
                 import_files(app);
             }
-            if ui.add(theme::btn("✦ Nouvel effet")).on_hover_text("Générateur d’effets sonores").clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("✦ Nouvel effet"))).on_hover_text(crate::i18n::tr("Générateur d’effets sonores")).clicked() {
                 app.sfx_ed = Some(crate::more::SfxEd::new(app, None));
             }
-            ui.add(egui::TextEdit::singleline(&mut lib.filter).hint_text("Filtrer…").desired_width(140.0));
+            ui.add(egui::TextEdit::singleline(&mut lib.filter).hint_text(crate::i18n::tr("Filtrer…")).desired_width(140.0));
             let total: usize = sounds.iter().map(|s| s.s("data").len() * 3 / 4).sum();
-            ui.label(egui::RichText::new(format!("{} son(s) · {:.1} Mo", sounds.len(), total as f64 / 1048576.0)).color(C::DIM()));
+            ui.label(egui::RichText::new(crate::i18n::trf("{0} son(s) · {1} Mo", &[format!("{}", sounds.len()), format!("{:.1}", total as f64 / 1048576.0)])).color(C::DIM()));
         });
         ui.separator();
         let list_h = if lib.cur.is_some() { (ui.available_height() - 230.0).max(120.0) } else { ui.available_height() };
         egui::ScrollArea::vertical().id_salt("sndl").max_height(list_h).auto_shrink([false, true]).show(ui, |ui| {
             if sounds.is_empty() {
-                ui.label(egui::RichText::new("Aucun son. Importez des fichiers ou créez un effet.").color(C::DIM()));
+                ui.label(egui::RichText::new(crate::i18n::tr("Aucun son. Importez des fichiers ou créez un effet.")).color(C::DIM()));
             }
             let f = lib.filter.to_lowercase();
             for s in &sounds {
@@ -241,7 +241,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 egui::Frame::new().fill(if sel { C::BG3() } else { C::BG2() }).corner_radius(6.0).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
                     ui.horizontal(|ui| {
                         let is_play = lib.playing.as_deref() == Some(&id);
-                        if ui.add(theme::btn_small(if is_play { "■" } else { "▶" })).on_hover_text(if is_play { "Arrêter" } else { "Écouter" }).clicked() {
+                        if ui.add(theme::btn_small(if is_play { "■" } else { "▶" })).on_hover_text(if is_play { crate::i18n::tr("Arrêter") } else { crate::i18n::tr("Écouter") }).clicked() {
                             if is_play {
                                 Preview::stop(app);
                                 lib.playing = None;
@@ -266,31 +266,31 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                                 }
                             }
                             None => {
-                                ui.label(egui::RichText::new("(illisible)").color(C::DANGER()));
+                                ui.label(egui::RichText::new(crate::i18n::tr("(illisible)")).color(C::DANGER()));
                             }
                         }
                         ui.vertical(|ui| {
                             let fmt = mime_of(s.s("data")).trim_start_matches("audio/").replace("mpeg", "mp3").replace("x-wav", "wav");
                             let kb = s.s("data").len() * 3 / 4 / 1024;
                             if let Some((_, t, ch, sr)) = info {
-                                ui.label(egui::RichText::new(format!("{} · {} · {} Ko", fmt_t(t), fmt, kb)).size(11.0).color(C::MUTED())).on_hover_text(format!("{} Hz, {}", sr, if ch == 1 { "mono".to_string() } else { format!("{ch} canaux") }));
+                                ui.label(egui::RichText::new(crate::i18n::trf("{0} · {1} · {2} Ko", &[format!("{}", fmt_t(t)), format!("{}", fmt), format!("{}", kb)])).size(11.0).color(C::MUTED())).on_hover_text(crate::i18n::trf("{0} Hz, {1}", &[format!("{}", sr), format!("{}", if ch == 1 { "mono".to_string() } else { crate::i18n::trf("{0} canaux", &[ch.to_string()]) })]));
                             }
-                            ui.label(egui::RichText::new(if n_use == 0 { "inutilisé".to_string() } else { format!("utilisé {}×", n_use) }).size(11.0).color(if n_use == 0 { C::DIM() } else { C::COND() }));
+                            ui.label(egui::RichText::new(if n_use == 0 { crate::i18n::tr("inutilisé").to_string() } else { crate::i18n::trf("utilisé {0}×", &[format!("{}", n_use)]) }).size(11.0).color(if n_use == 0 { C::DIM() } else { C::COND() }));
                         });
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.add(theme::btn_small("✕")).on_hover_text("Supprimer").clicked() {
+                            if ui.add(theme::btn_small("✕")).on_hover_text(crate::i18n::tr("Supprimer")).clicked() {
                                 lib.confirm_del = Some(id.clone());
                             }
-                            if ui.add(theme::btn_small("⬇")).on_hover_text("Enregistrer le fichier sur l’ordinateur").clicked() {
+                            if ui.add(theme::btn_small("⬇")).on_hover_text(crate::i18n::tr("Enregistrer le fichier sur l’ordinateur")).clicked() {
                                 let ext = match mime_of(s.s("data")) { "audio/mpeg" => "mp3", "audio/ogg" => "ogg", "audio/flac" => "flac", "audio/mp4" => "m4a", _ => "wav" };
                                 if let (Some(p), Some(b)) = (rfd::FileDialog::new().set_file_name(format!("{}.{}", s.s("name"), ext)).save_file(), pf_core::data_url_bytes(s.s("data"))) {
                                     let _ = std::fs::write(p, b);
                                 }
                             }
-                            if s.get("sfx").map(|x| x.is_object()).unwrap_or(false) && ui.add(theme::btn_small("✦")).on_hover_text("Modifier l’effet dans le générateur").clicked() {
+                            if s.get("sfx").map(|x| x.is_object()).unwrap_or(false) && ui.add(theme::btn_small("✦")).on_hover_text(crate::i18n::tr("Modifier l’effet dans le générateur")).clicked() {
                                 app.sfx_ed = Some(crate::more::SfxEd::new(app, Some(id.clone())));
                             }
-                            if ui.add(theme::btn_small("✂")).on_hover_text("Rogner, volume, fondus").clicked() {
+                            if ui.add(theme::btn_small("✂")).on_hover_text(crate::i18n::tr("Rogner, volume, fondus")).clicked() {
                                 if sel {
                                     lib.cur = None;
                                 } else {
@@ -310,8 +310,8 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             ui.separator();
             let Some((pk, secs, sr, ch)) = lib.dec(&id, s.s("data")).map(|d| (d.peaks.clone(), d.secs(), d.sr, d.ch)) else { return };
             ui.horizontal(|ui| {
-                theme::section(ui, &format!("Modifier « {} »", s.s("name")));
-                ui.label(egui::RichText::new(format!("garde {} sur {}", fmt_t((lib.b - lib.a) * secs), fmt_t(secs))).color(C::DIM()));
+                theme::section(ui, &crate::i18n::trf("Modifier « {0} »", &[format!("{}", s.s("name"))]));
+                ui.label(egui::RichText::new(crate::i18n::trf("garde {0} sur {1}", &[format!("{}", fmt_t((lib.b - lib.a) * secs)), format!("{}", fmt_t(secs))])).color(C::DIM()));
             });
             let w = ui.available_width().max(200.0);
             let r = wave(ui, &pk, egui::vec2(w, 90.0), C::ACCENT(), Some((lib.a, lib.b)));
@@ -337,14 +337,14 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             if r.drag_stopped() {
                 lib.drag = None;
             }
-            r.on_hover_text("Glissez les poignées pour garder seulement une partie du son");
+            r.on_hover_text(crate::i18n::tr("Glissez les poignées pour garder seulement une partie du son"));
             egui::Grid::new("sndfx").num_columns(4).spacing([10.0, 6.0]).show(ui, |ui| {
-                ui.label(egui::RichText::new("Volume").color(C::MUTED()));
+                ui.label(egui::RichText::new(crate::i18n::tr("Volume")).color(C::MUTED()));
                 ui.add(egui::Slider::new(&mut lib.gain, 0.0..=400.0).suffix(" %"));
-                ui.label(egui::RichText::new("Fondu d’entrée").color(C::MUTED()));
+                ui.label(egui::RichText::new(crate::i18n::tr("Fondu d’entrée")).color(C::MUTED()));
                 ui.add(egui::Slider::new(&mut lib.fade_in, 0.0..=(secs * (lib.b - lib.a)).max(0.01)).suffix(" s").step_by(0.01));
                 ui.end_row();
-                if ui.add(theme::btn_small("Normaliser")).on_hover_text("Règle le volume pour que le pic atteigne le maximum sans saturer").clicked() {
+                if ui.add(theme::btn_small(crate::i18n::tr("Normaliser"))).on_hover_text(crate::i18n::tr("Règle le volume pour que le pic atteigne le maximum sans saturer")).clicked() {
                     if let Some(d) = lib.cache.get(&id).and_then(|d| d.as_ref()) {
                         let ch = d.ch.max(1) as usize;
                         let fr = d.s.len() / ch;
@@ -356,18 +356,18 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     }
                 }
                 ui.label("");
-                ui.label(egui::RichText::new("Fondu de sortie").color(C::MUTED()));
+                ui.label(egui::RichText::new(crate::i18n::tr("Fondu de sortie")).color(C::MUTED()));
                 ui.add(egui::Slider::new(&mut lib.fade_out, 0.0..=(secs * (lib.b - lib.a)).max(0.01)).suffix(" s").step_by(0.01));
                 ui.end_row();
             });
             ui.horizontal(|ui| {
-                if ui.add(theme::btn("▶ Écouter le résultat")).clicked() {
+                if ui.add(theme::btn(crate::i18n::tr("▶ Écouter le résultat"))).clicked() {
                     if let Some(d) = lib.cache.get(&id).and_then(|d| d.as_ref()) {
                         let out = lib.processed(d);
                         Preview::play_ch(app, out, ch, sr);
                     }
                 }
-                if ui.add(theme::btn_accent("Appliquer")).on_hover_text("Remplace le son du projet (enregistré en WAV)").clicked() {
+                if ui.add(theme::btn_accent(crate::i18n::tr("Appliquer"))).on_hover_text(crate::i18n::tr("Remplace le son du projet (enregistré en WAV)")).clicked() {
                     if let Some(d) = lib.cache.get(&id).and_then(|d| d.as_ref()) {
                         let out = lib.processed(d);
                         let url = format!("data:audio/wav;base64,{}", pf_core::b64_encode(&wav(&out, ch, sr)));
@@ -380,10 +380,10 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         }
                         app.changed();
                         lib.edit(&id);
-                        app.toast("Son modifié (Ctrl+Z pour revenir en arrière).", false, now);
+                        app.toast(crate::i18n::tr("Son modifié (Ctrl+Z pour revenir en arrière)."), false, now);
                     }
                 }
-                if ui.add(theme::btn("Annuler")).clicked() {
+                if ui.add(theme::btn(crate::i18n::tr("Annuler"))).clicked() {
                     lib.cur = None;
                 }
             });
@@ -393,13 +393,13 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
     if let Some(id) = lib.confirm_del.clone() {
         let n = uses(app, &id);
         let name = sounds.iter().find(|s| s.s("id") == id).map(|s| s.s("name").to_string()).unwrap_or_default();
-        egui::Window::new("Supprimer le son ?").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
-            ui.label(format!("« {} » sera retiré du projet.", name));
+        egui::Window::new(crate::i18n::tr("Supprimer le son ?")).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+            ui.label(crate::i18n::trf("« {0} » sera retiré du projet.", &[format!("{}", name)]));
             if n > 0 {
-                ui.label(egui::RichText::new(format!("Attention : il est utilisé {} fois dans les événements ou les cinématiques.", n)).color(C::DANGER()));
+                ui.label(egui::RichText::new(crate::i18n::trf("Attention : il est utilisé {0} fois dans les événements ou les cinématiques.", &[format!("{}", n)])).color(C::DANGER()));
             }
             ui.horizontal(|ui| {
-                if ui.add(theme::btn_accent("Supprimer")).clicked() {
+                if ui.add(theme::btn_accent(crate::i18n::tr("Supprimer"))).clicked() {
                     app.snapshot();
                     if let Some(a) = app.proj["sounds"].as_array_mut() {
                         a.retain(|x| x.s("id") != id);
@@ -411,7 +411,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     app.changed();
                     lib.confirm_del = None;
                 }
-                if ui.add(theme::btn("Annuler")).clicked() {
+                if ui.add(theme::btn(crate::i18n::tr("Annuler"))).clicked() {
                     lib.confirm_del = None;
                 }
             });

@@ -187,7 +187,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             if ui.add(theme::btn_small("+")).clicked() {
                 zoom_at(app, app.view.rect.center(), 1.25);
             }
-            if ui.add(theme::btn_small("Ajuster")).on_hover_text("Voir tout le niveau").clicked() {
+            if ui.add(theme::btn_small(crate::i18n::tr("Ajuster"))).on_hover_text(crate::i18n::tr("Voir tout le niveau")).clicked() {
                 app.view.fit_pending = true;
             }
             if ui.add(theme::btn_small("100 %")).clicked() {
@@ -198,20 +198,20 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             ui.separator();
             crate::tools::toolbar(app, ui);
             ui.separator();
-            if ui.toggle_value(&mut app.view.grid, "Grille").changed() {
+            if ui.toggle_value(&mut app.view.grid, crate::i18n::tr("Grille")).changed() {
                 app.view.dirty = true;
             }
-            ui.toggle_value(&mut app.view.snap, "Aimanter");
-            ui.add(egui::DragValue::new(&mut app.view.grid_size).range(2.0..=256.0).suffix(" px")).on_hover_text("Taille de la grille");
+            ui.toggle_value(&mut app.view.snap, crate::i18n::tr("Aimanter"));
+            ui.add(egui::DragValue::new(&mut app.view.grid_size).range(2.0..=256.0).suffix(crate::i18n::tr(" px"))).on_hover_text(crate::i18n::tr("Taille de la grille"));
             ui.separator();
             // calques
             if let Some(l) = app.layout().cloned() {
-                ui.label(egui::RichText::new("Calque :").color(C::MUTED()));
+                ui.label(egui::RichText::new(crate::i18n::tr("Calque :")).color(C::MUTED()));
                 let layers = l.arr("layers").to_vec();
                 let cur = app.view.active_layer.clone().filter(|a| layers.iter().any(|y| y.s("id") == a));
-                let cur_name = cur.as_ref().and_then(|c| layers.iter().find(|y| y.s("id") == c)).map(|y| y.s("name").to_string()).unwrap_or_else(|| "(automatique)".into());
+                let cur_name = cur.as_ref().and_then(|c| layers.iter().find(|y| y.s("id") == c)).map(|y| y.s("name").to_string()).unwrap_or_else(|| crate::i18n::tr("(automatique)").into());
                 egui::ComboBox::from_id_salt("layer").selected_text(cur_name).show_ui(ui, |ui| {
-                    if ui.selectable_label(cur.is_none(), "(automatique)").clicked() {
+                    if ui.selectable_label(cur.is_none(), crate::i18n::tr("(automatique)")).clicked() {
                         app.view.active_layer = None;
                     }
                     for y in &layers {
@@ -225,7 +225,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                     let vis = !app.view.hidden.contains(&id);
                     let lock = app.view.locked.contains(&id);
                     let t = format!("{}{} {}", if vis { "👁" } else { "◌" }, if lock { "🔒" } else { "" }, y.s("name"));
-                    let r = ui.add(egui::Button::new(egui::RichText::new(t).size(12.0).color(if vis { C::TEXT2() } else { C::DIM() })).fill(C::BG2())).on_hover_text("Clic : afficher / masquer · Clic droit : verrouiller");
+                    let r = ui.add(egui::Button::new(egui::RichText::new(t).size(12.0).color(if vis { C::TEXT2() } else { C::DIM() })).fill(C::BG2())).on_hover_text(crate::i18n::tr("Clic : afficher / masquer · Clic droit : verrouiller"));
                     if r.clicked() {
                         if vis {
                             app.view.hidden.insert(id.clone());
@@ -482,11 +482,11 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                 }
             }
         }
-        let info = app.layout().map(|l| format!("{} × {} px · {} instance(s)   ", l.f("w", 0.0), l.f("h", 0.0), l.arr("instances").len())).unwrap_or_default();
+        let info = app.layout().map(|l| crate::i18n::trf("{0} × {1} px · {2} instance(s)   ", &[format!("{}", l.f("w", 0.0)), format!("{}", l.f("h", 0.0)), format!("{}", l.arr("instances").len())])).unwrap_or_default();
         painter.text(rect.right_bottom() - egui::vec2(8.0, 6.0), egui::Align2::RIGHT_BOTTOM, format!("{}{:.0}, {:.0}", info, wx, wy), egui::FontId::monospace(11.0), C::DIM());
     }
     if app.layout().map(|l| l.arr("instances").is_empty()).unwrap_or(false) {
-        painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Glissez un objet depuis le panneau de gauche pour le placer dans le niveau", egui::FontId::proportional(14.0), C::MUTED());
+        painter.text(rect.center(), egui::Align2::CENTER_CENTER, crate::i18n::tr("Glissez un objet depuis le panneau de gauche pour le placer dans le niveau"), egui::FontId::proportional(14.0), C::MUTED());
     }
 }
 

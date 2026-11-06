@@ -17,13 +17,13 @@ pub fn now() -> f64 {
 fn ago(t: f64) -> String {
     let s = (now() - t).max(0.0) as u64;
     if s < 5 {
-        "à l’instant".into()
+        crate::i18n::tr("à l’instant").into()
     } else if s < 60 {
-        format!("il y a {s} s")
+        crate::i18n::trf("il y a {0} s", &[format!("{}", s)])
     } else if s < 3600 {
-        format!("il y a {} min", s / 60)
+        crate::i18n::trf("il y a {0} min", &[format!("{}", s / 60)])
     } else {
-        format!("il y a {} h", s / 3600)
+        crate::i18n::trf("il y a {0} h", &[format!("{}", s / 3600)])
     }
 }
 
@@ -37,13 +37,13 @@ fn key_of(v: &Json) -> String {
 
 fn label(k: &str) -> (&'static str, &'static str) {
     match k {
-        "objects" => ("Objet", "Objets"),
-        "layouts" => ("Niveau", "Niveaux"),
-        "sheets" => ("Feuille", "Feuilles"),
-        "sounds" => ("Son", "Sons"),
-        "cines" => ("Cinématique", "Cinématiques"),
-        "globals" => ("Variable globale", "Variables globales"),
-        _ => ("Élément", "Éléments"),
+        "objects" => (crate::i18n::tr("Objet"), crate::i18n::tr("Objets")),
+        "layouts" => (crate::i18n::tr("Niveau"), crate::i18n::tr("Niveaux")),
+        "sheets" => (crate::i18n::tr("Feuille"), crate::i18n::tr("Feuilles")),
+        "sounds" => (crate::i18n::tr("Son"), crate::i18n::tr("Sons")),
+        "cines" => (crate::i18n::tr("Cinématique"), crate::i18n::tr("Cinématiques")),
+        "globals" => (crate::i18n::tr("Variable globale"), crate::i18n::tr("Variables globales")),
+        _ => (crate::i18n::tr("Élément"), crate::i18n::tr("Éléments")),
     }
 }
 
@@ -67,15 +67,15 @@ fn diff_item(k: &str, a: &Json, b: &Json) -> String {
             let ia = a.get("instances").and_then(|x| x.as_array()).map(|x| x.len()).unwrap_or(0);
             let ib = b.get("instances").and_then(|x| x.as_array()).map(|x| x.len()).unwrap_or(0);
             if ib > ia {
-                format!("Niveau « {n} » : {} instance(s) ajoutée(s)", ib - ia)
+                crate::i18n::trf("Niveau « {0} » : {1} instance(s) ajoutée(s)", &[format!("{}", n), format!("{}", ib - ia)])
             } else if ib < ia {
-                format!("Niveau « {n} » : {} instance(s) supprimée(s)", ia - ib)
+                crate::i18n::trf("Niveau « {0} » : {1} instance(s) supprimée(s)", &[format!("{}", n), format!("{}", ia - ib)])
             } else if a.get("instances") != b.get("instances") {
-                format!("Niveau « {n} » : instance déplacée ou modifiée")
+                crate::i18n::trf("Niveau « {0} » : instance déplacée ou modifiée", &[format!("{}", n)])
             } else if a.get("layers") != b.get("layers") {
-                format!("Niveau « {n} » : calques / tuiles modifiés")
+                crate::i18n::trf("Niveau « {0} » : calques / tuiles modifiés", &[format!("{}", n)])
             } else {
-                format!("Niveau « {n} » : propriétés modifiées")
+                crate::i18n::trf("Niveau « {0} » : propriétés modifiées", &[format!("{}", n)])
             }
         }
         "sheets" => {
@@ -87,31 +87,31 @@ fn diff_item(k: &str, a: &Json, b: &Json) -> String {
             sa.sort();
             sb.sort();
             if sa == sb && ia != ib {
-                format!("Feuille « {n} » : événement déplacé")
+                crate::i18n::trf("Feuille « {0} » : événement déplacé", &[format!("{}", n)])
             } else if eb > ea {
-                format!("Feuille « {n} » : {} événement(s) ajouté(s)", eb - ea)
+                crate::i18n::trf("Feuille « {0} » : {1} événement(s) ajouté(s)", &[format!("{}", n), format!("{}", eb - ea)])
             } else if eb < ea {
-                format!("Feuille « {n} » : {} événement(s) supprimé(s)", ea - eb)
+                crate::i18n::trf("Feuille « {0} » : {1} événement(s) supprimé(s)", &[format!("{}", n), format!("{}", ea - eb)])
             } else {
-                format!("Feuille « {n} » : événements modifiés")
+                crate::i18n::trf("Feuille « {0} » : événements modifiés", &[format!("{}", n)])
             }
         }
         "objects" => {
             if a.get("anims") != b.get("anims") {
-                format!("Objet « {n} » : sprite / animations modifiés")
+                crate::i18n::trf("Objet « {0} » : sprite / animations modifiés", &[format!("{}", n)])
             } else if a.get("name") != b.get("name") {
-                format!("Objet « {} » renommé en « {n} »", name_of(a))
+                crate::i18n::trf("Objet « {0} » renommé en « {1} »", &[format!("{}", name_of(a)), format!("{}", n)])
             } else {
-                format!("Objet « {n} » : propriétés modifiées")
+                crate::i18n::trf("Objet « {0} » : propriétés modifiées", &[format!("{}", n)])
             }
         }
-        _ => format!("{} « {n} » modifié(e)", label(k).0),
+        _ => crate::i18n::trf("{0} « {1} » modifié(e)", &[format!("{}", label(k).0), format!("{}", n)]),
     }
 }
 
 /// décrit ce qui a changé entre deux états du projet
 pub fn describe(a: &Json, b: &Json) -> String {
-    let (Some(oa), Some(ob)) = (a.as_object(), b.as_object()) else { return "Projet modifié".into() };
+    let (Some(oa), Some(ob)) = (a.as_object(), b.as_object()) else { return crate::i18n::tr("Projet modifié").into() };
     let mut out: Vec<String> = Vec::new();
     for k in ["objects", "layouts", "sheets", "sounds", "cines", "globals"] {
         let la = oa.get(k).and_then(|x| x.as_array()).cloned().unwrap_or_default();
@@ -123,10 +123,10 @@ pub fn describe(a: &Json, b: &Json) -> String {
         let added: Vec<&Json> = lb.iter().filter(|x| !la.iter().any(|y| key_of(y) == key_of(x))).collect();
         let removed: Vec<&Json> = la.iter().filter(|x| !lb.iter().any(|y| key_of(y) == key_of(x))).collect();
         for x in &added {
-            out.push(format!("{one} « {} » ajouté(e)", name_of(x)));
+            out.push(crate::i18n::trf("{0} « {1} » ajouté(e)", &[format!("{}", one), format!("{}", name_of(x))]));
         }
         for x in &removed {
-            out.push(format!("{one} « {} » supprimé(e)", name_of(x)));
+            out.push(crate::i18n::trf("{0} « {1} » supprimé(e)", &[format!("{}", one), format!("{}", name_of(x))]));
         }
         for x in &lb {
             if let Some(y) = la.iter().find(|y| key_of(y) == key_of(x)) {
@@ -136,22 +136,22 @@ pub fn describe(a: &Json, b: &Json) -> String {
             }
         }
         if added.is_empty() && removed.is_empty() && out.is_empty() {
-            out.push(format!("{} : ordre modifié", label(k).1));
+            out.push(crate::i18n::trf("{0} : ordre modifié", &[format!("{}", label(k).1)]));
         }
     }
     if oa.get("settings") != ob.get("settings") {
-        out.push("Paramètres du projet modifiés".into());
+        out.push(crate::i18n::tr("Paramètres du projet modifiés").into());
     }
     if oa.get("name") != ob.get("name") {
-        out.push("Projet renommé".into());
+        out.push(crate::i18n::tr("Projet renommé").into());
     }
     if out.is_empty() {
-        return "Modification mineure".into();
+        return crate::i18n::tr("Modification mineure").into();
     }
     if out.len() > 2 {
         let n = out.len() - 2;
         out.truncate(2);
-        out.push(format!("+{n} autre(s)"));
+        out.push(crate::i18n::trf("+{0} autre(s)", &[format!("{}", n)]));
     }
     out.join(" · ")
 }
@@ -174,24 +174,24 @@ pub fn window(app: &mut App, ctx: &egui::Context) {
     let mut open = true;
     let mut target: Option<usize> = None;
     let mut redo_n = 0usize;
-    egui::Window::new("Historique").open(&mut open).default_size(dsz).max_size(msz).constrain(true).show(ctx, |ui| {
-        ui.label(egui::RichText::new("Cliquez sur une étape pour revenir à l’état d’avant. Rien n’est perdu : Rétablir (Ctrl+Y) refait les étapes.").color(C::DIM()).small());
+    egui::Window::new(crate::i18n::tr("Historique")).open(&mut open).default_size(dsz).max_size(msz).constrain(true).show(ctx, |ui| {
+        ui.label(egui::RichText::new(crate::i18n::tr("Cliquez sur une étape pour revenir à l’état d’avant. Rien n’est perdu : Rétablir (Ctrl+Y) refait les étapes.")).color(C::DIM()).small());
         ui.separator();
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             // étapes annulées (rétablissables), de la plus récente à la plus ancienne
             let nr = app.redo.len();
             for j in 0..nr {
-                let txt = egui::RichText::new(format!("↷  étape annulée n°{}", nr - j)).color(C::DIM()).italics();
-                if ui.add(egui::SelectableLabel::new(false, txt)).on_hover_text("Rétablir jusqu’ici").clicked() {
+                let txt = egui::RichText::new(crate::i18n::trf("↷  étape annulée n°{0}", &[format!("{}", nr - j)])).color(C::DIM()).italics();
+                if ui.add(egui::SelectableLabel::new(false, txt)).on_hover_text(crate::i18n::tr("Rétablir jusqu’ici")).clicked() {
                     redo_n = nr - j;
                 }
             }
-            ui.add(egui::SelectableLabel::new(true, egui::RichText::new("●  État actuel").strong().color(C::ACCENT())));
+            ui.add(egui::SelectableLabel::new(true, egui::RichText::new(crate::i18n::tr("●  État actuel")).strong().color(C::ACCENT())));
             let n = app.hist.descs.len();
             for i in (0..n).rev() {
                 let t = app.undo_t.get(i).copied().unwrap_or(0.0);
                 let r = ui.add(egui::SelectableLabel::new(false, format!("↶  {}", app.hist.descs[i])));
-                let r = if t > 0.0 { r.on_hover_text(format!("{} — cliquer pour annuler jusqu’à avant cette étape", ago(t))) } else { r };
+                let r = if t > 0.0 { r.on_hover_text(crate::i18n::trf("{0} — cliquer pour annuler jusqu’à avant cette étape", &[format!("{}", ago(t))])) } else { r };
                 if r.clicked() {
                     target = Some(i);
                 }
@@ -200,7 +200,7 @@ pub fn window(app: &mut App, ctx: &egui::Context) {
                 }
             }
             if n == 0 && nr == 0 {
-                ui.label(egui::RichText::new("Aucune modification pour l’instant.").color(C::DIM()));
+                ui.label(egui::RichText::new(crate::i18n::tr("Aucune modification pour l’instant.")).color(C::DIM()));
             }
         });
     });

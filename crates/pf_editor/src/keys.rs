@@ -26,10 +26,10 @@ pub fn code(k: Key) -> Option<String> {
             if n.len() == 1 {
                 let c = n.chars().next().unwrap();
                 if c.is_ascii_alphabetic() {
-                    return Some(format!("Key{}", c.to_ascii_uppercase()));
+                    return Some(crate::i18n::trf("Key{0}", &[format!("{}", c.to_ascii_uppercase())]));
                 }
                 if c.is_ascii_digit() {
-                    return Some(format!("Digit{}", c));
+                    return Some(crate::i18n::trf("Digit{0}", &[format!("{}", c)]));
                 }
             }
             if let Some(f) = n.strip_prefix('F') {

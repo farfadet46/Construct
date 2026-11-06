@@ -141,28 +141,28 @@ fn fmt_param(app: &App, t: &str, v: &Json, pd: &Json, k: &str) -> String {
             }
         }
         "layout" => app.proj.arr("layouts").iter().find(|l| l.s("id") == s).map(|l| l.s("name").to_string()).unwrap_or_else(|| "?".into()),
-        "cmp" => pf_core::catalog::catalog()["CMP"].as_array().and_then(|a| a.iter().find(|c| c[0].as_str() == Some(&s))).and_then(|c| c[1].as_str()).unwrap_or(&s).to_string(),
-        "key" => catalog::keys().iter().find(|x| x.0 == s).map(|x| x.1.to_string()).unwrap_or(s),
+        "cmp" => pf_core::catalog::ui_catalog()["CMP"].as_array().and_then(|a| a.iter().find(|c| c[0].as_str() == Some(&s))).and_then(|c| c[1].as_str()).unwrap_or(&s).to_string(),
+        "key" => catalog::ui_keys().iter().find(|x| x.0 == s).map(|x| x.1.to_string()).unwrap_or(s),
         "choice" => pd.arr("o").iter().find(|o| o[0].as_str() == Some(&s)).and_then(|o| o[1].as_str()).map(|x| x.to_string()).unwrap_or(s),
-        "sound" => catalog::catalog()["SOUNDS"].as_array().and_then(|a| a.iter().find(|x| x[0].as_str() == Some(&s))).and_then(|x| x[1].as_str()).unwrap_or(&s).to_string(),
-        "sfile" => app.proj.arr("sounds").iter().find(|x| x.s("id") == s).map(|x| x.s("name").to_string()).unwrap_or_else(|| "(son manquant)".into()),
-        "bool" => if pf_runtime::rt::jtruthy(Some(v)) { "oui".into() } else { "non".into() },
-        "lname" => if s.is_empty() { "premier calque".into() } else { s },
+        "sound" => catalog::ui_catalog()["SOUNDS"].as_array().and_then(|a| a.iter().find(|x| x[0].as_str() == Some(&s))).and_then(|x| x[1].as_str()).unwrap_or(&s).to_string(),
+        "sfile" => app.proj.arr("sounds").iter().find(|x| x.s("id") == s).map(|x| x.s("name").to_string()).unwrap_or_else(|| crate::i18n::tr("(son manquant)").into()),
+        "bool" => if pf_runtime::rt::jtruthy(Some(v)) { crate::i18n::tr("oui").into() } else { crate::i18n::tr("non").into() },
+        "lname" => if s.is_empty() { crate::i18n::tr("premier calque").into() } else { s },
         "gname" => format!("« {} »", s),
         "args" => format!("({})", s),
-        "tag" => if s.is_empty() { String::new() } else { format!(", étiquette {}", s) },
+        "tag" => if s.is_empty() { String::new() } else { crate::i18n::trf(", étiquette {0}", &[format!("{}", s)]) },
         "anim" => format!("\"{}\"", s),
-        "cine" => app.proj.arr("cines").iter().find(|c| c.s("id") == s).map(|c| c.s("name").to_string()).unwrap_or_else(|| if s.is_empty() { "toutes".into() } else { "(manquante)".into() }),
-        "ipt" | "iptx" => if s.is_empty() { if k == "b:pin.pinto" { "position actuelle".into() } else { "origine".into() } } else { format!("« {} »", s) },
+        "cine" => app.proj.arr("cines").iter().find(|c| c.s("id") == s).map(|c| c.s("name").to_string()).unwrap_or_else(|| if s.is_empty() { crate::i18n::tr("toutes").into() } else { crate::i18n::tr("(manquante)").into() }),
+        "ipt" | "iptx" => if s.is_empty() { if k == "b:pin.pinto" { crate::i18n::tr("position actuelle").into() } else { crate::i18n::tr("origine").into() } } else { format!("« {} »", s) },
         _ => s,
     }
 }
 
 pub fn ace_text(app: &App, it: &Json, is_cond: bool) -> String {
     let k = it.s("k");
-    let d = match catalog::ace_def(!is_cond, k) {
+    let d = match catalog::ui_ace_def(!is_cond, k) {
         Some(d) => d,
-        None => return format!("(inconnu : {})", k),
+        None => return crate::i18n::trf("(inconnu : {0})", &[format!("{}", k)]),
     };
     let t = d.s("t");
     let mut out = String::new();
@@ -185,12 +185,12 @@ pub fn ace_text(app: &App, it: &Json, is_cond: bool) -> String {
 
 fn owner(app: &App, o: &str) -> (String, egui::Color32) {
     match o {
-        "system" => ("Système".into(), C::SYS()),
-        "keyboard" => ("Clavier".into(), C::BLUE_T()),
-        "mouse" => ("Souris".into(), C::BLUE_T()),
-        "audio" => ("Audio".into(), C::GREEN_T()),
-        "storage" => ("Sauvegarde".into(), C::PURPLE()),
-        id => (app.obj(id).map(|o| format!("{} {}", crate::tree::glyph(o.s("kind")), o.s("name"))).unwrap_or_else(|| "(supprimé)".into()), C::CODE()),
+        "system" => (crate::i18n::tr("Système").into(), C::SYS()),
+        "keyboard" => (crate::i18n::tr("Clavier").into(), C::BLUE_T()),
+        "mouse" => (crate::i18n::tr("Souris").into(), C::BLUE_T()),
+        "audio" => (crate::i18n::tr("Audio").into(), C::GREEN_T()),
+        "storage" => (crate::i18n::tr("Sauvegarde").into(), C::PURPLE()),
+        id => (app.obj(id).map(|o| format!("{} {}", crate::tree::glyph(o.s("kind")), o.s("name"))).unwrap_or_else(|| crate::i18n::tr("(supprimé)").into()), C::CODE()),
     }
 }
 
@@ -246,7 +246,7 @@ pub fn rename_in_exprs(p: &mut Json, old: &str, new: &str) {
                     for it in a.iter_mut() {
                         let k = it.s("k").to_string();
                         let cond = key == "conds";
-                        let d = catalog::ace_def(!cond, &k).cloned();
+                        let d = catalog::ui_ace_def(!cond, &k).cloned();
                         if let Some(ps) = it.get_mut("p").and_then(|x| x.as_array_mut()) {
                             for (n, v) in ps.iter_mut().enumerate() {
                                 let t = d.as_ref().and_then(|d| d.arr("p").get(n)).map(|pd| pd.s("t").to_string()).unwrap_or_default();
@@ -283,7 +283,7 @@ fn new_event() -> Json {
 pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     let _ = now;
     if !app.proj.arr("sheets").iter().any(|s| s.s("id") == app.cur_sheet) {
-        ui.label("Aucune feuille d’événements.");
+        ui.label(crate::i18n::tr("Aucune feuille d’événements."));
         return;
     }
     if !crate::util::typing(ui.ctx()) && app.sprite.is_none() {
@@ -317,25 +317,25 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                 }
                 app.changed();
             };
-            if ui.add(theme::btn_accent("+ Événement")).clicked() {
+            if ui.add(theme::btn_accent(crate::i18n::tr("+ Événement"))).clicked() {
                 add(app, new_event(), false);
             }
-            if ui.add_enabled(sel.is_some(), theme::btn("+ Sous-événement")).clicked() {
+            if ui.add_enabled(sel.is_some(), theme::btn(crate::i18n::tr("+ Sous-événement"))).clicked() {
                 add(app, new_event(), true);
             }
-            if ui.add(theme::btn("+ Commentaire")).clicked() {
-                add(app, json!({"id":pf_core::uid("e"),"kind":"comment","text":"Commentaire"}), false);
+            if ui.add(theme::btn(crate::i18n::tr("+ Commentaire"))).clicked() {
+                add(app, json!({"id":pf_core::uid("e"),"kind":"comment","text":crate::i18n::tr("Commentaire")}), false);
             }
-            if ui.add(theme::btn("+ Groupe")).clicked() {
-                add(app, json!({"id":pf_core::uid("e"),"kind":"group","name":"Groupe","desc":"","active":true,"subs":[]}), false);
+            if ui.add(theme::btn(crate::i18n::tr("+ Groupe"))).clicked() {
+                add(app, json!({"id":pf_core::uid("e"),"kind":"group","name":crate::i18n::tr("Groupe"),"desc":"","active":true,"subs":[]}), false);
             }
-            if ui.add(theme::btn("+ Fonction")).clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("+ Fonction"))).clicked() {
                 add(app, json!({"id":pf_core::uid("e"),"kind":"function","name":"maFonction","params":[],"acts":[],"subs":[]}), false);
             }
-            if ui.add(theme::btn("+ Variable locale")).clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("+ Variable locale"))).clicked() {
                 add(app, json!({"id":pf_core::uid("e"),"kind":"lvar","name":"local","type":"number","value":0,"static":false}), false);
             }
-            if ui.add(theme::btn("+ Inclure une feuille")).clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("+ Inclure une feuille"))).clicked() {
                 let other = app.proj.arr("sheets").iter().find(|s| s.s("id") != app.cur_sheet).map(|s| s.s("id").to_string()).unwrap_or_default();
                 add(app, json!({"id":pf_core::uid("e"),"kind":"include","sheet":other}), false);
             }
@@ -347,7 +347,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             if ui.add_enabled(has, theme::btn_small("↓")).clicked() {
                 move_sel(app, 1);
             }
-            if ui.add_enabled(has, theme::btn_small("Activer / désactiver")).clicked() {
+            if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Activer / désactiver"))).clicked() {
                 if let Some(p) = sel.clone() {
                     app.snapshot();
                     if let Some(e) = ev_at(sheet_mut(app).unwrap(), &p) {
@@ -357,7 +357,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                     app.changed();
                 }
             }
-            if ui.add_enabled(has, theme::btn_small("Dupliquer")).clicked() {
+            if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Dupliquer"))).clicked() {
                 if let Some(p) = sel.clone() {
                     app.snapshot();
                     let sh = sheet_mut(app).unwrap();
@@ -369,21 +369,21 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                     app.changed();
                 }
             }
-            if ui.add_enabled(has, theme::btn_small("Copier")).on_hover_text("Ctrl+C").clicked() {
+            if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Copier"))).on_hover_text(crate::i18n::tr("Ctrl+C")).clicked() {
                 copy_sel(app, ui.ctx());
             }
-            if ui.add_enabled(app.ev_clip.is_some(), theme::btn_small("Coller")).on_hover_text("Ctrl+V — après l’événement sélectionné").clicked() {
+            if ui.add_enabled(app.ev_clip.is_some(), theme::btn_small(crate::i18n::tr("Coller"))).on_hover_text(crate::i18n::tr("Ctrl+V — après l’événement sélectionné")).clicked() {
                 paste(app);
             }
             let bp_on = sel.as_ref().and_then(|p| ev_id(app, p)).map(|id| app.bps.contains(&id)).unwrap_or(false);
-            if ui.add_enabled(has, theme::btn_small(if bp_on { "● Retirer le point d’arrêt" } else { "● Point d’arrêt" })).on_hover_text("Le test se met en pause quand cet événement s’exécute").clicked() {
+            if ui.add_enabled(has, theme::btn_small(if bp_on { crate::i18n::tr("● Retirer le point d’arrêt") } else { crate::i18n::tr("● Point d’arrêt") })).on_hover_text(crate::i18n::tr("Le test se met en pause quand cet événement s’exécute")).clicked() {
                 if let Some(id) = sel.as_ref().and_then(|p| ev_id(app, p)) {
                     if !app.bps.remove(&id) {
                         app.bps.insert(id);
                     }
                 }
             }
-            if ui.add_enabled(has, theme::btn_small("Supprimer")).clicked() {
+            if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Supprimer"))).clicked() {
                 if let Some(p) = sel.clone() {
                     app.snapshot();
                     let sh = sheet_mut(app).unwrap();
@@ -400,7 +400,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         ui.add_space(6.0);
         if events.is_empty() {
-            ui.label(RichText::new("Feuille vide : ajoutez un événement (« + Événement »), puis ses conditions (à gauche) et ses actions (à droite).").color(C::MUTED()));
+            ui.label(RichText::new(crate::i18n::tr("Feuille vide : ajoutez un événement (« + Événement »), puis ses conditions (à gauche) et ses actions (à droite).")).color(C::MUTED()));
         }
         draw_list(app, ui, &events, &mut vec![], 0);
         ui.add_space(40.0);
@@ -475,7 +475,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
             ui.label(RichText::new("⠿").color(C::DIM()));
         })
         .response
-        .on_hover_text("Glisser pour déplacer l’événement (au milieu d’un événement ou d’un groupe : le ranger dedans)");
+        .on_hover_text(crate::i18n::tr("Glisser pour déplacer l’événement (au milieu d’un événement ou d’un groupe : le ranger dedans)"));
         ui.vertical(|ui| {
             match e.s("kind") {
                 "comment" => {
@@ -490,7 +490,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                             ui.label(RichText::new(format!("💬 {}", t)).color(if theme::C::LIGHT.load(std::sync::atomic::Ordering::Relaxed) { egui::Color32::from_rgb(0x7a, 0x55, 0x10) } else { egui::Color32::from_rgb(0xff, 0xd8, 0x9a) }).italics());
                         }
                     });
-                    if r.response.interact(egui::Sense::click()).clicked() {
+                    if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
                         app.ev.sel = Some(path.clone());
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
@@ -508,7 +508,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                                 }
                             }
                             let mut act = e.get("active") != Some(&Json::Bool(false));
-                            if ui.checkbox(&mut act, "").on_hover_text("Groupe actif au démarrage").changed() {
+                            if ui.checkbox(&mut act, "").on_hover_text(crate::i18n::tr("Groupe actif au démarrage")).changed() {
                                 set_field(app, path, "active", Json::Bool(act));
                             }
                             if sel {
@@ -526,7 +526,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                             }
                         });
                     });
-                    if r.response.interact(egui::Sense::click()).clicked() {
+                    if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
                         app.ev.sel = Some(path.clone());
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
@@ -540,7 +540,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                     let r = row_frame(sel, off, C::BG2()).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new("Variable locale").color(C::MUTED()));
+                            ui.label(RichText::new(crate::i18n::tr("Variable locale")).color(C::MUTED()));
                             let mut n = e.s("name").to_string();
                             if ui.add(egui::TextEdit::singleline(&mut n).desired_width(100.0)).changed() {
                                 set_field(app, path, "name", Json::String(n));
@@ -552,16 +552,16 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                                 set_field(app, path, "value", if tx { Json::String(v) } else { json!(pf_core::Val::S(v).num0()) });
                             }
                             let mut tx = e.s("type") == "text";
-                            if ui.checkbox(&mut tx, "texte").changed() {
+                            if ui.checkbox(&mut tx, crate::i18n::tr("texte")).changed() {
                                 set_field(app, path, "type", Json::String(if tx { "text" } else { "number" }.into()));
                             }
                             let mut st = pf_runtime::rt::jtruthy(e.get("static"));
-                            if ui.checkbox(&mut st, "statique").on_hover_text("Garde sa valeur d’une image à l’autre").changed() {
+                            if ui.checkbox(&mut st, crate::i18n::tr("statique")).on_hover_text(crate::i18n::tr("Garde sa valeur d’une image à l’autre")).changed() {
                                 set_field(app, path, "static", Json::Bool(st));
                             }
                         });
                     });
-                    if r.response.interact(egui::Sense::click()).clicked() {
+                    if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
                         app.ev.sel = Some(path.clone());
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
@@ -570,7 +570,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                     let r = row_frame(sel, off, C::BG2()).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new("Inclure la feuille").color(C::MUTED()));
+                            ui.label(RichText::new(crate::i18n::tr("Inclure la feuille")).color(C::MUTED()));
                             let cur = e.s("sheet").to_string();
                             let nm = app.proj.arr("sheets").iter().find(|s| s.s("id") == cur).map(|s| s.s("name").to_string()).unwrap_or_else(|| "?".into());
                             egui::ComboBox::from_id_salt(("inc", &id)).selected_text(nm).show_ui(ui, |ui| {
@@ -582,7 +582,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                             });
                         });
                     });
-                    if r.response.interact(egui::Sense::click()).clicked() {
+                    if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
                         app.ev.sel = Some(path.clone());
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
@@ -592,16 +592,16 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                     let r = row_frame(sel, off, C::BG2()).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         if app.bps.contains(&id) {
-                            ui.label(RichText::new("● point d’arrêt").size(11.0).color(C::DANGER()));
+                            ui.label(RichText::new(crate::i18n::tr("● point d’arrêt")).size(11.0).color(C::DANGER()));
                         }
                         if is_fn {
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new("ƒ Fonction").strong().color(C::ACCENT()));
+                                ui.label(RichText::new(crate::i18n::tr("ƒ Fonction")).strong().color(C::ACCENT()));
                                 let mut n = e.s("name").to_string();
                                 if ui.add(egui::TextEdit::singleline(&mut n).desired_width(140.0)).changed() {
                                     set_field(app, path, "name", Json::String(n));
                                 }
-                                ui.label(RichText::new("paramètres :").color(C::MUTED()));
+                                ui.label(RichText::new(crate::i18n::tr("paramètres :")).color(C::MUTED()));
                                 let mut ps = e.arr("params").iter().map(pf_runtime::rt::jstr).collect::<Vec<_>>().join(", ");
                                 if ui.add(egui::TextEdit::singleline(&mut ps).desired_width(160.0)).changed() {
                                     let v: Vec<String> = ps.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect();
@@ -621,37 +621,37 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                                     ace_row(app, &mut cols[0], c, path, true, ci);
                                 }
                                 if conds.is_empty() {
-                                    cols[0].label(RichText::new("À chaque image (aucune condition)").color(C::DIM()).italics());
+                                    cols[0].label(RichText::new(crate::i18n::tr("À chaque image (aucune condition)")).color(C::DIM()).italics());
                                 }
                                 cols[0].horizontal(|ui| {
-                                    if ui.add(egui::Button::new(RichText::new("+ condition").size(12.0).color(C::COND())).frame(false)).clicked() {
+                                    if ui.add(egui::Button::new(RichText::new(crate::i18n::tr("+ condition")).size(12.0).color(C::COND())).frame(false)).clicked() {
                                         app.ev.sel = Some(path.clone());
                                         app.ev.pick = Some((path.clone(), true, None));
                                         app.ev.pick_filter.clear();
                                     }
                                     if conds.len() > 1 {
                                         let mut o2 = or;
-                                        if ui.checkbox(&mut o2, RichText::new("bloc OU").size(11.0)).changed() {
+                                        if ui.checkbox(&mut o2, RichText::new(crate::i18n::tr("bloc OU")).size(11.0)).changed() {
                                             set_field(app, path, "or", Json::Bool(o2));
                                         }
                                     }
                                 });
                             } else {
-                                cols[0].label(RichText::new("Appelée par l’action « Appeler une fonction » ou call(\"nom\", …)").size(11.0).color(C::DIM()));
+                                cols[0].label(RichText::new(crate::i18n::tr("Appelée par l’action « Appeler une fonction » ou call(\"nom\", …)")).size(11.0).color(C::DIM()));
                             }
                             // actions
                             let acts = e.arr("acts").to_vec();
                             for (ai, a) in acts.iter().enumerate() {
                                 ace_row(app, &mut cols[1], a, path, false, ai);
                             }
-                            if cols[1].add(egui::Button::new(RichText::new("+ action").size(12.0).color(C::ACT())).frame(false)).clicked() {
+                            if cols[1].add(egui::Button::new(RichText::new(crate::i18n::tr("+ action")).size(12.0).color(C::ACT())).frame(false)).clicked() {
                                 app.ev.sel = Some(path.clone());
                                 app.ev.pick = Some((path.clone(), false, None));
                                 app.ev.pick_filter.clear();
                             }
                         });
                     });
-                    if r.response.interact(egui::Sense::click()).clicked() {
+                    if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
                         app.ev.sel = Some(path.clone());
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
@@ -692,19 +692,19 @@ fn ace_row(app: &mut App, ui: &mut egui::Ui, it: &Json, path: &Vec<usize>, cond:
         app.ev.edit = Some((path.clone(), cond, idx));
     }
     resp.context_menu(|ui| {
-        if ui.button("Modifier…").clicked() {
+        if ui.button(crate::i18n::tr("Modifier…")).clicked() {
             app.ev.edit = Some((path.clone(), cond, idx));
             ui.close_menu();
         }
-        if ui.button(if off { "Activer" } else { "Désactiver" }).clicked() {
+        if ui.button(if off { crate::i18n::tr("Activer") } else { crate::i18n::tr("Désactiver") }).clicked() {
             ace_set(app, path, cond, idx, "off", Json::Bool(!off));
             ui.close_menu();
         }
-        if cond && ui.button(if not { "Ne plus inverser" } else { "Inverser (NON)" }).clicked() {
+        if cond && ui.button(if not { crate::i18n::tr("Ne plus inverser") } else { crate::i18n::tr("Inverser (NON)") }).clicked() {
             ace_set(app, path, cond, idx, "not", Json::Bool(!not));
             ui.close_menu();
         }
-        if ui.button("Supprimer").clicked() {
+        if ui.button(crate::i18n::tr("Supprimer")).clicked() {
             app.snapshot();
             if let Some(e) = ev_at(sheet_mut(app).unwrap(), path) {
                 if let Some(a) = e.get_mut(if cond { "conds" } else { "acts" }).and_then(|x| x.as_array_mut()) {
@@ -745,7 +745,7 @@ fn param_ui(app: &App, ui: &mut egui::Ui, pd: &Json, v: &mut Json, owner_id: &st
         x => pf_runtime::rt::jstr(x),
     };
     let combo = |ui: &mut egui::Ui, v: &mut Json, items: Vec<(String, String)>, ch: &mut bool| {
-        let lab = items.iter().find(|x| x.0 == cur).map(|x| x.1.clone()).unwrap_or_else(|| if cur.is_empty() { "(choisir)".into() } else { cur.clone() });
+        let lab = items.iter().find(|x| x.0 == cur).map(|x| x.1.clone()).unwrap_or_else(|| if cur.is_empty() { crate::i18n::tr("(choisir)").into() } else { cur.clone() });
         egui::ComboBox::from_id_salt(pd as *const _ as usize).selected_text(lab).width(220.0).show_ui(ui, |ui| {
             for (k, n) in items {
                 if ui.selectable_label(k == cur, n).clicked() {
@@ -770,15 +770,15 @@ fn param_ui(app: &App, ui: &mut egui::Ui, pd: &Json, v: &mut Json, owner_id: &st
             }
         }
         "cmp" => {
-            let items = catalog::catalog()["CMP"].as_array().unwrap().iter().map(|c| (c[0].as_str().unwrap().to_string(), c[1].as_str().unwrap().to_string())).collect();
+            let items = catalog::ui_catalog()["CMP"].as_array().unwrap().iter().map(|c| (c[0].as_str().unwrap().to_string(), c[1].as_str().unwrap().to_string())).collect();
             combo(ui, v, items, &mut ch);
         }
         "key" => {
-            let items = catalog::keys().into_iter().map(|(k, n)| (k.to_string(), n.to_string())).collect();
+            let items = catalog::ui_keys().into_iter().map(|(k, n)| (k.to_string(), n.to_string())).collect();
             combo(ui, v, items, &mut ch);
         }
         "obj" | "objopt" => {
-            let mut items: Vec<(String, String)> = if t == "objopt" { vec![(String::new(), "(aucun)".into())] } else { vec![] };
+            let mut items: Vec<(String, String)> = if t == "objopt" { vec![(String::new(), crate::i18n::tr("(aucun)").into())] } else { vec![] };
             items.extend(app.proj.arr("objects").iter().map(|o| (o.s("id").to_string(), format!("{} {}", crate::tree::glyph(o.s("kind")), o.s("name")))));
             combo(ui, v, items, &mut ch);
         }
@@ -787,7 +787,7 @@ fn param_ui(app: &App, ui: &mut egui::Ui, pd: &Json, v: &mut Json, owner_id: &st
             combo(ui, v, items, &mut ch);
         }
         "lname" => {
-            let mut items = vec![(String::new(), "(premier calque)".to_string())];
+            let mut items = vec![(String::new(), crate::i18n::tr("(premier calque)").to_string())];
             let mut seen = std::collections::HashSet::new();
             for l in app.proj.arr("layouts") {
                 for y in l.arr("layers") {
@@ -803,7 +803,7 @@ fn param_ui(app: &App, ui: &mut egui::Ui, pd: &Json, v: &mut Json, owner_id: &st
             combo(ui, v, items, &mut ch);
         }
         "sound" => {
-            let items = catalog::catalog()["SOUNDS"].as_array().unwrap().iter().map(|s| (s[0].as_str().unwrap().to_string(), s[1].as_str().unwrap().to_string())).collect();
+            let items = catalog::ui_catalog()["SOUNDS"].as_array().unwrap().iter().map(|s| (s[0].as_str().unwrap().to_string(), s[1].as_str().unwrap().to_string())).collect();
             combo(ui, v, items, &mut ch);
         }
         "sfile" => {
@@ -815,7 +815,7 @@ fn param_ui(app: &App, ui: &mut egui::Ui, pd: &Json, v: &mut Json, owner_id: &st
             ui.horizontal(|ui| {
                 combo(ui, v, items, &mut ch);
                 let mut s = cur.clone();
-                if ui.add(egui::TextEdit::singleline(&mut s).desired_width(90.0)).on_hover_text("ou une variable locale / un paramètre de fonction").changed() {
+                if ui.add(egui::TextEdit::singleline(&mut s).desired_width(90.0)).on_hover_text(crate::i18n::tr("ou une variable locale / un paramètre de fonction")).changed() {
                     *v = Json::String(s);
                     ch = true;
                 }
@@ -860,7 +860,7 @@ fn param_ui(app: &App, ui: &mut egui::Ui, pd: &Json, v: &mut Json, owner_id: &st
             combo(ui, v, items, &mut ch);
         }
         "cine" => {
-            let mut items = vec![(String::new(), "(toutes)".to_string())];
+            let mut items = vec![(String::new(), crate::i18n::tr("(toutes)").to_string())];
             items.extend(app.proj.arr("cines").iter().map(|c| (c.s("id").to_string(), c.s("name").to_string())));
             combo(ui, v, items, &mut ch);
         }
@@ -912,12 +912,12 @@ fn edit_window(app: &mut App, ctx: &egui::Context) {
             return;
         }
     };
-    let d = catalog::ace_def(!cond, it.s("k")).cloned().unwrap_or(Json::Null);
+    let d = catalog::ui_ace_def(!cond, it.s("k")).cloned().unwrap_or(Json::Null);
     let mut open = true;
     let mut e2 = it.clone();
     let mut ch = false;
     let mut close = false;
-    egui::Window::new(if cond { "Condition" } else { "Action" }).id(egui::Id::new("aceedit")).open(&mut open).collapsible(false).resizable(false).default_width(420.0).max_size(theme::fit(ctx, 420.0, 600.0).1).vscroll(true).constrain(true).show(ctx, |ui| {
+    egui::Window::new(if cond { crate::i18n::tr("Condition") } else { crate::i18n::tr("Action") }).id(egui::Id::new("aceedit")).open(&mut open).collapsible(false).resizable(false).default_width(420.0).max_size(theme::fit(ctx, 420.0, 600.0).1).vscroll(true).constrain(true).show(ctx, |ui| {
         let (on, col) = owner(app, it.s("o"));
         ui.label(RichText::new(on).color(col));
         ui.label(RichText::new(d.s("n")).strong().size(15.0).color(C::TEXT()));
@@ -939,7 +939,7 @@ fn edit_window(app: &mut App, ctx: &egui::Context) {
                 ui.end_row();
             }
             if cond {
-                ui.label(RichText::new("Inverser (NON)").color(C::MUTED()));
+                ui.label(RichText::new(crate::i18n::tr("Inverser (NON)")).color(C::MUTED()));
                 let mut b = pf_runtime::rt::jtruthy(e2.get("not"));
                 if ui.checkbox(&mut b, "").changed() {
                     e2["not"] = Json::Bool(b);
@@ -950,10 +950,10 @@ fn edit_window(app: &mut App, ctx: &egui::Context) {
         });
         ui.separator();
         ui.horizontal(|ui| {
-            if ui.add(theme::btn_accent("Terminé")).clicked() {
+            if ui.add(theme::btn_accent(crate::i18n::tr("Terminé"))).clicked() {
                 close = true;
             }
-            if ui.add(theme::btn("Supprimer")).clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("Supprimer"))).clicked() {
                 app.snapshot();
                 if let Some(e) = ev_at(sheet_mut(app).unwrap(), &path) {
                     if let Some(a) = e.get_mut(if cond { "conds" } else { "acts" }).and_then(|x| x.as_array_mut()) {
@@ -989,21 +989,21 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
     let mut open = true;
     let mut chosen: Option<(String, String)> = None;
     let mut new_prov: Option<Option<String>> = None;
-    egui::Window::new(if cond { "Ajouter une condition" } else { "Ajouter une action" }).id(egui::Id::new("acepick")).open(&mut open).collapsible(false).default_width(520.0).default_height(theme::fit(ctx, 520.0, 520.0).0.y).max_size(theme::fit(ctx, 520.0, 520.0).1).constrain(true).show(ctx, |ui| {
+    egui::Window::new(if cond { crate::i18n::tr("Ajouter une condition") } else { crate::i18n::tr("Ajouter une action") }).id(egui::Id::new("acepick")).open(&mut open).collapsible(false).default_width(520.0).default_height(theme::fit(ctx, 520.0, 520.0).0.y).max_size(theme::fit(ctx, 520.0, 520.0).1).constrain(true).show(ctx, |ui| {
         match &prov {
             None => {
-                ui.label(RichText::new("1. Choisissez l’objet concerné").color(C::MUTED()));
+                ui.label(RichText::new(crate::i18n::tr("1. Choisissez l’objet concerné")).color(C::MUTED()));
                 ui.add_space(4.0);
                 ui.horizontal_wrapped(|ui| {
                     for (k, n, g) in SYS_PROVS {
                         if !cond && k == "keyboard" {
                             continue;
                         }
-                        let tab = if cond { catalog::conds() } else { catalog::acts() };
+                        let tab = if cond { catalog::ui_conds() } else { catalog::ui_acts() };
                         if !tab.contains_key(k) {
                             continue;
                         }
-                        if ui.add(theme::btn(&format!("{}  {}", g, n))).clicked() {
+                        if ui.add(theme::btn(&format!("{}  {}", g, crate::i18n::tr(n)))).clicked() {
                             new_prov = Some(Some(k.to_string()));
                         }
                     }
@@ -1025,10 +1025,10 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
                     if ui.small_button("←").clicked() {
                         new_prov = Some(None);
                     }
-                    ui.label(RichText::new(format!("2. {} : choisissez {}", on, if cond { "la condition" } else { "l’action" })).color(col));
+                    ui.label(RichText::new(crate::i18n::trf("2. {0} : choisissez {1}", &[format!("{}", on), format!("{}", if cond { crate::i18n::tr("la condition") } else { crate::i18n::tr("l’action") })])).color(col));
                 });
-                ui.add(egui::TextEdit::singleline(&mut app.ev.pick_filter).hint_text("🔍 Rechercher").desired_width(f32::INFINITY));
-                let tab = if cond { catalog::conds() } else { catalog::acts() };
+                ui.add(egui::TextEdit::singleline(&mut app.ev.pick_filter).hint_text(crate::i18n::tr("🔍 Rechercher")).desired_width(f32::INFINITY));
+                let tab = if cond { catalog::ui_conds() } else { catalog::ui_acts() };
                 let provs: Vec<String> = if SYS_PROVS.iter().any(|x| x.0 == p) {
                     vec![p.clone()]
                 } else {
@@ -1045,9 +1045,9 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
                                 }
                                 let cat = if d.s("cat").is_empty() {
                                     if let Some(b) = pv.strip_prefix("b:") {
-                                        catalog::behaviors().get(b).map(|x| x.s("n").to_string()).unwrap_or_default()
+                                        catalog::ui_behaviors().get(b).map(|x| x.s("n").to_string()).unwrap_or_default()
                                     } else {
-                                        catalog::provname(pv).to_string()
+                                        catalog::ui_provname(pv).to_string()
                                     }
                                 } else {
                                     d.s("cat").to_string()
@@ -1082,7 +1082,7 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
         app.ev.pick_filter.clear();
     }
     if let Some((o, k)) = chosen {
-        let d = catalog::ace_def(!cond, &k).cloned().unwrap_or(Json::Null);
+        let d = catalog::ui_ace_def(!cond, &k).cloned().unwrap_or(Json::Null);
         let ps: Vec<Json> = d.arr("p").iter().map(|pd| match pd.get("d") {
             Some(v) => v.clone(),
             None => {

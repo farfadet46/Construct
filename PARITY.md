@@ -78,4 +78,5 @@ d'objets identiques** à la version HTML.
 | Particules : éditeur dédié en français, couleurs, forme, aperçu en direct par le moteur du jeu (4 fonds) | ✅ |
 | Sons : bibliothèque (forme d'onde, durée, format, taille, nombre d'utilisations, import multiple, export, suppression avec avertissement) | ✅ |
 | Sons : rognage, volume, normalisation, fondus d'entrée / de sortie, écoute du résultat | ✅ |
-
+| Interface en français ou en anglais (bouton FR / EN, choix mémorisé, langue du système au premier lancement) ; conditions, actions et comportements traduits aussi | ✅ |
+| Correctif : les boutons à l'intérieur d'un événement (« + action », « + condition », cases à cocher…) recevaient mal les clics | ✅ |

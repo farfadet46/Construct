@@ -64,7 +64,7 @@ impl PartEd {
         let y = if self.pt.s("mode") == "burst" { PH as f64 * 0.5 } else if up { PH as f64 * 0.75 } else { PH as f64 * 0.4 };
         let p = json!({
             "app": "platforge", "version": 1, "name": "apercu",
-            "settings": {"title": "aperçu", "width": PW, "height": PH, "pixelArt": false, "startLayout": "L"},
+            "settings": {"title": crate::i18n::tr("aperçu"), "width": PW, "height": PH, "pixelArt": false, "startLayout": "L"},
             "objects": objs, "sounds": [], "cines": [], "globals": [],
             "sheets": [{"id": "S", "name": "S", "events": []}],
             "layouts": [{"id": "L", "name": "L", "w": PW, "h": PH, "bg": BGS[self.bg].1, "sheet": "S",
@@ -104,10 +104,10 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
     let mut open = true;
     let (mut save, mut close) = (false, false);
     let (dsz, msz) = theme::fit(ctx, 900.0, 640.0);
-    egui::Window::new(format!("Éditeur de particules — {}", ed.name)).id(egui::Id::new("parted")).open(&mut open).default_size(dsz).max_size(msz).min_size([520.0, 320.0]).resizable(true).collapsible(false).constrain(true).show(ctx, |ui| {
+    egui::Window::new(crate::i18n::trf("Éditeur de particules — {0}", &[format!("{}", ed.name)])).id(egui::Id::new("parted")).open(&mut open).default_size(dsz).max_size(msz).min_size([520.0, 320.0]).resizable(true).collapsible(false).constrain(true).show(ctx, |ui| {
         ui.horizontal_wrapped(|ui| {
-            ui.label(egui::RichText::new("Préréglages :").color(C::MUTED()));
-            if let Some(pr) = pf_core::catalog::catalog()["PTPRESETS"].as_object() {
+            ui.label(egui::RichText::new(crate::i18n::tr("Préréglages :")).color(C::MUTED()));
+            if let Some(pr) = pf_core::catalog::ui_catalog()["PTPRESETS"].as_object() {
                 for p in pr.values() {
                     if ui.add(theme::btn_small(p.s("n"))).clicked() {
                         let mut q = p.clone();
@@ -118,18 +118,18 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
             }
             ui.separator();
-            if ui.add(theme::btn_accent("Enregistrer")).clicked() {
+            if ui.add(theme::btn_accent(crate::i18n::tr("Enregistrer"))).clicked() {
                 save = true;
             }
-            if ui.add(theme::btn("Enregistrer et fermer")).clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("Enregistrer et fermer"))).clicked() {
                 save = true;
                 close = true;
             }
-            if ui.add(theme::btn("Fermer")).on_hover_text("Fermer sans enregistrer").clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("Fermer"))).on_hover_text(crate::i18n::tr("Fermer sans enregistrer")).clicked() {
                 close = true;
             }
             if ed.dirty {
-                ui.label(egui::RichText::new("●").color(C::ACCENT())).on_hover_text("Modifications non enregistrées");
+                ui.label(egui::RichText::new("●").color(C::ACCENT())).on_hover_text(crate::i18n::tr("Modifications non enregistrées"));
             }
         });
         ui.separator();
@@ -137,55 +137,55 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             let h = ui.available_height();
             egui::ScrollArea::vertical().id_salt("ptl").max_height(h).auto_shrink([true, false]).show(ui, |ui| { ui.vertical(|ui| {
                 ui.set_width(360.0);
-                theme::section(ui, "Émission");
+                theme::section(ui, crate::i18n::tr("Émission"));
                 egui::Grid::new("pte").num_columns(2).spacing([8.0, 5.0]).show(ui, |ui| {
-                    ui.label(egui::RichText::new("Mode").color(C::MUTED()));
+                    ui.label(egui::RichText::new(crate::i18n::tr("Mode")).color(C::MUTED()));
                     ui.horizontal(|ui| {
                         let burst = ed.pt.s("mode") == "burst";
-                        if ui.selectable_label(burst, "Rafale").on_hover_text("Toutes les particules d’un coup (explosion, impact)").clicked() && !burst {
+                        if ui.selectable_label(burst, crate::i18n::tr("Rafale")).on_hover_text(crate::i18n::tr("Toutes les particules d’un coup (explosion, impact)")).clicked() && !burst {
                             ed.pt["mode"] = json!("burst");
                             ed.changed();
                         }
-                        if ui.selectable_label(!burst, "Continu").on_hover_text("Un flux régulier (fumée, feu, pluie)").clicked() && burst {
+                        if ui.selectable_label(!burst, crate::i18n::tr("Continu")).on_hover_text(crate::i18n::tr("Un flux régulier (fumée, feu, pluie)")).clicked() && burst {
                             ed.pt["mode"] = json!("stream");
                             ed.changed();
                         }
                     });
                     ui.end_row();
                     if ed.pt.s("mode") == "burst" {
-                        num(ui, &mut ed, "burst", "Nombre", "Particules lancées par rafale", 1.0..=300.0, "", 10.0);
+                        num(ui, &mut ed, "burst", crate::i18n::tr("Nombre"), crate::i18n::tr("Particules lancées par rafale"), 1.0..=300.0, "", 10.0);
                     } else {
-                        num(ui, &mut ed, "rate", "Débit", "Particules par seconde", 0.0..=500.0, " /s", 20.0);
+                        num(ui, &mut ed, "rate", crate::i18n::tr("Débit"), crate::i18n::tr("Particules par seconde"), 0.0..=500.0, " /s", 20.0);
                     }
-                    num(ui, &mut ed, "width", "Largeur de la source", "Les particules naissent sur une ligne de cette largeur (0 = un point)", 0.0..=400.0, " px", 0.0);
+                    num(ui, &mut ed, "width", crate::i18n::tr("Largeur de la source"), crate::i18n::tr("Les particules naissent sur une ligne de cette largeur (0 = un point)"), 0.0..=400.0, crate::i18n::tr(" px"), 0.0);
                 });
-                theme::section(ui, "Direction et vitesse");
+                theme::section(ui, crate::i18n::tr("Direction et vitesse"));
                 egui::Grid::new("ptd").num_columns(2).spacing([8.0, 5.0]).show(ui, |ui| {
-                    num(ui, &mut ed, "angle", "Direction", "0 = droite, -90 = haut, 90 = bas", -180.0..=180.0, "°", 0.0);
-                    num(ui, &mut ed, "spray", "Dispersion", "Ouverture du cône d’émission (360 = toutes les directions)", 0.0..=360.0, "°", 0.0);
-                    num(ui, &mut ed, "speed", "Vitesse", "Vitesse de départ", 0.0..=1000.0, " px/s", 0.0);
-                    num(ui, &mut ed, "speedRand", "Variation", "Écart aléatoire de vitesse", 0.0..=500.0, " px/s", 0.0);
+                    num(ui, &mut ed, "angle", crate::i18n::tr("Direction"), crate::i18n::tr("0 = droite, -90 = haut, 90 = bas"), -180.0..=180.0, "°", 0.0);
+                    num(ui, &mut ed, "spray", crate::i18n::tr("Dispersion"), crate::i18n::tr("Ouverture du cône d’émission (360 = toutes les directions)"), 0.0..=360.0, "°", 0.0);
+                    num(ui, &mut ed, "speed", crate::i18n::tr("Vitesse"), crate::i18n::tr("Vitesse de départ"), 0.0..=1000.0, crate::i18n::tr(" px/s"), 0.0);
+                    num(ui, &mut ed, "speedRand", crate::i18n::tr("Variation"), crate::i18n::tr("Écart aléatoire de vitesse"), 0.0..=500.0, crate::i18n::tr(" px/s"), 0.0);
                 });
-                theme::section(ui, "Mouvement");
+                theme::section(ui, crate::i18n::tr("Mouvement"));
                 egui::Grid::new("ptm").num_columns(2).spacing([8.0, 5.0]).show(ui, |ui| {
-                    num(ui, &mut ed, "gravity", "Gravité", "Positive : tombe · négative : monte (fumée)", -1000.0..=1000.0, " px/s²", 0.0);
-                    num(ui, &mut ed, "drag", "Freinage", "Ralentissement dans l’air", 0.0..=10.0, "", 0.0);
-                    num(ui, &mut ed, "spin", "Rotation", "Vitesse de rotation (carrés et images)", -1000.0..=1000.0, "°/s", 0.0);
+                    num(ui, &mut ed, "gravity", crate::i18n::tr("Gravité"), crate::i18n::tr("Positive : tombe · négative : monte (fumée)"), -1000.0..=1000.0, crate::i18n::tr(" px/s²"), 0.0);
+                    num(ui, &mut ed, "drag", crate::i18n::tr("Freinage"), crate::i18n::tr("Ralentissement dans l’air"), 0.0..=10.0, "", 0.0);
+                    num(ui, &mut ed, "spin", crate::i18n::tr("Rotation"), crate::i18n::tr("Vitesse de rotation (carrés et images)"), -1000.0..=1000.0, "°/s", 0.0);
                 });
-                theme::section(ui, "Durée de vie et taille");
+                theme::section(ui, crate::i18n::tr("Durée de vie et taille"));
                 egui::Grid::new("ptl2").num_columns(2).spacing([8.0, 5.0]).show(ui, |ui| {
-                    num(ui, &mut ed, "life", "Durée de vie", "Temps avant disparition", 0.05..=5.0, " s", 1.0);
-                    num(ui, &mut ed, "lifeRand", "Variation", "Écart aléatoire de durée", 0.0..=3.0, " s", 0.0);
-                    num(ui, &mut ed, "size0", "Taille au début", "", 0.0..=64.0, " px", 4.0);
-                    num(ui, &mut ed, "size1", "Taille à la fin", "", 0.0..=64.0, " px", 0.0);
-                    num(ui, &mut ed, "sizeRand", "Variation", "Écart aléatoire de taille", 0.0..=32.0, " px", 0.0);
+                    num(ui, &mut ed, "life", crate::i18n::tr("Durée de vie"), crate::i18n::tr("Temps avant disparition"), 0.05..=5.0, " s", 1.0);
+                    num(ui, &mut ed, "lifeRand", crate::i18n::tr("Variation"), crate::i18n::tr("Écart aléatoire de durée"), 0.0..=3.0, " s", 0.0);
+                    num(ui, &mut ed, "size0", crate::i18n::tr("Taille au début"), "", 0.0..=64.0, crate::i18n::tr(" px"), 4.0);
+                    num(ui, &mut ed, "size1", crate::i18n::tr("Taille à la fin"), "", 0.0..=64.0, crate::i18n::tr(" px"), 0.0);
+                    num(ui, &mut ed, "sizeRand", crate::i18n::tr("Variation"), crate::i18n::tr("Écart aléatoire de taille"), 0.0..=32.0, crate::i18n::tr(" px"), 0.0);
                 });
-                theme::section(ui, "Apparence");
+                theme::section(ui, crate::i18n::tr("Apparence"));
                 egui::Grid::new("pta").num_columns(2).spacing([8.0, 5.0]).show(ui, |ui| {
-                    ui.label(egui::RichText::new("Forme").color(C::MUTED()));
+                    ui.label(egui::RichText::new(crate::i18n::tr("Forme")).color(C::MUTED()));
                     ui.horizontal_wrapped(|ui| {
                         let cur = ed.pt.s("shape").to_string();
-                        for (k, n) in [("square", "Carré"), ("circle", "Rond"), ("soft", "Lueur douce"), ("image", "Image")] {
+                        for (k, n) in [("square", crate::i18n::tr("Carré")), ("circle", crate::i18n::tr("Rond")), ("soft", crate::i18n::tr("Lueur douce")), ("image", crate::i18n::tr("Image"))] {
                             if ui.selectable_label(cur == k || (cur.is_empty() && k == "square"), n).clicked() {
                                 ed.pt["shape"] = json!(k);
                                 ed.changed();
@@ -197,7 +197,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         ui.label(egui::RichText::new("Sprite").color(C::MUTED()));
                         let cur = ed.pt.s("image").to_string();
                         let sprites: Vec<(String, String)> = app.proj.arr("objects").iter().filter(|o| o.s("kind") == "sprite").map(|o| (o.s("id").to_string(), o.s("name").to_string())).collect();
-                        let nm = sprites.iter().find(|s| s.0 == cur).map(|s| s.1.clone()).unwrap_or_else(|| "(choisir)".into());
+                        let nm = sprites.iter().find(|s| s.0 == cur).map(|s| s.1.clone()).unwrap_or_else(|| crate::i18n::tr("(choisir)").into());
                         egui::ComboBox::from_id_salt("ptimg").selected_text(nm).show_ui(ui, |ui| {
                             for (id, n) in &sprites {
                                 if ui.selectable_label(*id == cur, n).clicked() {
@@ -208,27 +208,27 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         });
                         ui.end_row();
                     }
-                    ui.label(egui::RichText::new("Mélange").color(C::MUTED()));
+                    ui.label(egui::RichText::new(crate::i18n::tr("Mélange")).color(C::MUTED()));
                     ui.horizontal(|ui| {
                         let add = ed.pt.s("blend") == "add";
-                        if ui.selectable_label(!add, "Normal").clicked() && add {
+                        if ui.selectable_label(!add, crate::i18n::tr("Normal")).clicked() && add {
                             ed.pt["blend"] = json!("normal");
                             ed.changed();
                         }
-                        if ui.selectable_label(add, "Lumineux").on_hover_text("Les couleurs s’additionnent : feu, étincelles, magie").clicked() && !add {
+                        if ui.selectable_label(add, crate::i18n::tr("Lumineux")).on_hover_text(crate::i18n::tr("Les couleurs s’additionnent : feu, étincelles, magie")).clicked() && !add {
                             ed.pt["blend"] = json!("add");
                             ed.changed();
                         }
                     });
                     ui.end_row();
-                    ui.label(egui::RichText::new("Fondu").color(C::MUTED()));
+                    ui.label(egui::RichText::new(crate::i18n::tr("Fondu")).color(C::MUTED()));
                     let mut f = ed.pt.get("fade") != Some(&Json::Bool(false));
-                    if ui.checkbox(&mut f, "s’efface en fin de vie").changed() {
+                    if ui.checkbox(&mut f, crate::i18n::tr("s’efface en fin de vie")).changed() {
                         ed.pt["fade"] = json!(f);
                         ed.changed();
                     }
                     ui.end_row();
-                    ui.label(egui::RichText::new("Couleurs").color(C::MUTED())).on_hover_text("Chaque particule prend une couleur au hasard dans la liste");
+                    ui.label(egui::RichText::new(crate::i18n::tr("Couleurs")).color(C::MUTED())).on_hover_text(crate::i18n::tr("Chaque particule prend une couleur au hasard dans la liste"));
                     ui.horizontal_wrapped(|ui| {
                         let mut cols: Vec<String> = ed.pt.arr("colors").iter().filter_map(|c| c.as_str().map(|s| s.to_string())).collect();
                         let mut ch = false;
@@ -243,13 +243,13 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                             if r.secondary_clicked() {
                                 del = Some(k);
                             }
-                            r.on_hover_text("Clic droit : retirer");
+                            r.on_hover_text(crate::i18n::tr("Clic droit : retirer"));
                         }
                         if let Some(k) = del {
                             cols.remove(k);
                             ch = true;
                         }
-                        if ui.add(theme::btn_small("+")).on_hover_text("Ajouter une couleur").clicked() {
+                        if ui.add(theme::btn_small("+")).on_hover_text(crate::i18n::tr("Ajouter une couleur")).clicked() {
                             cols.push(cols.last().cloned().unwrap_or_else(|| "#ffffff".into()));
                             ch = true;
                         }
@@ -260,9 +260,9 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     });
                     ui.end_row();
                     if ed.pt.s("mode") == "burst" {
-                        ui.label(egui::RichText::new("À la fin").color(C::MUTED()));
+                        ui.label(egui::RichText::new(crate::i18n::tr("À la fin")).color(C::MUTED()));
                         let mut d = ed.pt.get("destroyEnd") != Some(&Json::Bool(false));
-                        if ui.checkbox(&mut d, "détruire l’émetteur").on_hover_text("Supprime l’objet quand la rafale est terminée").changed() {
+                        if ui.checkbox(&mut d, crate::i18n::tr("détruire l’émetteur")).on_hover_text(crate::i18n::tr("Supprime l’objet quand la rafale est terminée")).changed() {
                             ed.pt["destroyEnd"] = json!(d);
                             ed.dirty = true;
                         }
@@ -274,14 +274,14 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             // ---- aperçu
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    theme::section(ui, "Aperçu");
+                    theme::section(ui, crate::i18n::tr("Aperçu"));
                     for (k, (n, _)) in BGS.iter().enumerate() {
-                        if ui.selectable_label(ed.bg == k, *n).clicked() {
+                        if ui.selectable_label(ed.bg == k, crate::i18n::tr(n)).clicked() {
                             ed.bg = k;
                             ed.stale = true;
                         }
                     }
-                    if ui.add(theme::btn_small("↻ Rejouer")).clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("↻ Rejouer"))).clicked() {
                         ed.stale = true;
                     }
                     if ui.add(theme::btn_small(if ed.paused { "▶" } else { "⏸" })).clicked() {
@@ -318,7 +318,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                     let s = (aw / PW as f32).min((ui.available_height() - 40.0).max(120.0) / PH as f32).clamp(0.4, 2.0);
                     ui.image((t.id(), egui::vec2(PW as f32 * s, PH as f32 * s)));
                 }
-                ui.label(egui::RichText::new("L’aperçu utilise le moteur du jeu : c’est exactement le rendu final.").size(11.0).color(C::DIM()));
+                ui.label(egui::RichText::new(crate::i18n::tr("L’aperçu utilise le moteur du jeu : c’est exactement le rendu final.")).size(11.0).color(C::DIM()));
                 if !ed.paused {
                     ctx.request_repaint();
                 }
@@ -334,7 +334,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
         }
         ed.dirty = false;
         app.changed();
-        app.toast("Particules enregistrées.", false, now);
+        app.toast(crate::i18n::tr("Particules enregistrées."), false, now);
     }
     if open && !close {
         app.part_ed = Some(ed);

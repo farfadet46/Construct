@@ -30,7 +30,7 @@ pub fn glyph(kind: &str) -> &'static str {
     KINDS.iter().find(|k| k.0 == kind).map(|k| k.2).unwrap_or("•")
 }
 pub fn kind_name(kind: &str) -> &'static str {
-    KINDS.iter().find(|k| k.0 == kind).map(|k| k.1).unwrap_or("Objet")
+    KINDS.iter().find(|k| k.0 == kind).map(|k| crate::i18n::tr(k.1)).unwrap_or(crate::i18n::tr("Objet"))
 }
 
 /// petite image PNG unie (data URL) pour les nouveaux objets
@@ -96,36 +96,36 @@ pub fn unique_name(app: &App, base: &str) -> String {
 pub fn make_object(app: &App, kind: &str) -> Json {
     let name = unique_name(app, match kind {
         "sprite" => "Sprite",
-        "tiled" => "Mosaique",
-        "tilemap" => "Tuiles",
-        "text" => "Texte",
-        "button" => "Bouton",
-        "bar" => "Barre",
-        "particles" => "Particules",
-        "leaderboard" => "Classement",
-        "road3d" => "Route",
+        "tiled" => crate::i18n::tr("Mosaique"),
+        "tilemap" => crate::i18n::tr("Tuiles"),
+        "text" => crate::i18n::tr("Texte"),
+        "button" => crate::i18n::tr("Bouton"),
+        "bar" => crate::i18n::tr("Barre"),
+        "particles" => crate::i18n::tr("Particules"),
+        "leaderboard" => crate::i18n::tr("Classement"),
+        "road3d" => crate::i18n::tr("Route"),
         "minimap" => "MiniCarte",
-        "array" => "Tableau",
-        "dict" => "Dictionnaire",
-        _ => "Famille",
+        "array" => crate::i18n::tr("Tableau"),
+        "dict" => crate::i18n::tr("Dictionnaire"),
+        _ => crate::i18n::tr("Famille"),
     });
     let id = pf_core::uid("o");
     let mut o = match kind {
         "sprite" => json!({"kind":"sprite","w":32,"h":32,"ox":16,"oy":16,"cbox":{"x":0,"y":0,"w":32,"h":32},"collision":"auto","defW":32,"defH":32,
-            "anims":[{"id":pf_core::uid("a"),"name":"Défaut","speed":5,"loop":true,"frames":[solid_png(32,32,[255,138,61,255],Some([26,15,7,255]))]}],"points":[]}),
+            "anims":[{"id":pf_core::uid("a"),"name":crate::i18n::tr("Défaut"),"speed":5,"loop":true,"frames":[solid_png(32,32,[255,138,61,255],Some([26,15,7,255]))]}],"points":[]}),
         "tiled" => json!({"kind":"tiled","w":16,"h":16,"image":solid_png(16,16,[120,140,170,255],Some([80,94,120,255])),"scale":2,"defW":128,"defH":32}),
         "tilemap" => json!({"kind":"tilemap","image":tileset_png(),"w":64,"h":32,"tw":16,"th":16,"scale":2,"tcol":{},"defW":256,"defH":128,"behaviors":[{"type":"solid","props":{}}]}),
-        "text" => json!({"kind":"text","size":20,"color":"#ffffff","bold":true,"align":"left","font":"round","outline":true,"outlineColor":"#1b1f2a","text":"Texte","defW":240,"defH":32}),
-        "button" => json!({"kind":"button","text":"Bouton","size":20,"font":"round","bg":"#3d6df2","fg":"#ffffff","hoverBg":"#5a86ff","hoverFg":"#ffffff","radius":10,"border":0,"borderColor":"#ffffff","shadow":true,"focusColor":"#ffd84a","defW":220,"defH":48}),
+        "text" => json!({"kind":"text","size":20,"color":"#ffffff","bold":true,"align":"left","font":"round","outline":true,"outlineColor":"#1b1f2a","text":crate::i18n::tr("Texte"),"defW":240,"defH":32}),
+        "button" => json!({"kind":"button","text":crate::i18n::tr("Bouton"),"size":20,"font":"round","bg":"#3d6df2","fg":"#ffffff","hoverBg":"#5a86ff","hoverFg":"#ffffff","radius":10,"border":0,"borderColor":"#ffffff","shadow":true,"focusColor":"#ffd84a","defW":220,"defH":48}),
         "bar" => json!({"kind":"bar","max":100,"value":100,"fg":"#e8566a","bg":"#1b1f2a","ghostColor":"#ffffff","lowColor":"","lowAt":25,"border":2,"borderColor":"#ffffff","radius":6,"dir":"ltr","segments":0,"showText":false,"format":"{valeur} / {max}","size":14,"font":"round","textColor":"#ffffff","smooth":true,"defW":200,"defH":20}),
         "particles" => {
-            let mut p = pf_core::catalog::catalog()["PTPRESETS"]["dust"].clone();
+            let mut p = pf_core::catalog::ui_catalog()["PTPRESETS"]["dust"].clone();
             if let Some(m) = p.as_object_mut() {
                 m.remove("n");
             }
             json!({"kind":"particles","pt":p,"defW":32,"defH":32})
         }
-        "leaderboard" => json!({"kind":"leaderboard","table":"scores","rows":5,"title":"Meilleurs scores","showTitle":true,"size":18,"font":"round","fg":"#ffffff","accent":"#ffd84d","bg":"#1b1f2a","bgAlpha":60,"suffix":"","defW":360,"defH":240}),
+        "leaderboard" => json!({"kind":"leaderboard","table":"scores","rows":5,"title":crate::i18n::tr("Meilleurs scores"),"showTitle":true,"size":18,"font":"round","fg":"#ffffff","accent":"#ffd84d","bg":"#1b1f2a","bgAlpha":60,"suffix":"","defW":360,"defH":240}),
         "road3d" => json!({"kind":"road3d","track":pf_runtime::road::RD_TRACK,"segLen":200,"roadWidth":2000,"lanes":2,"rumble":3,"drawDist":160,"camHeight":1000,"fov":100,"fogDensity":4,"fog":"#9fd3f2","grassA":"#58b84f","grassB":"#4fa847","roadA":"#727280","roadB":"#6b6b73","rumbleA":"#e8566a","rumbleB":"#f4f4f4","lane":"#f4f4f4","maxKmh":220,"accelTime":5,"brakePower":1,"centrifugal":0.3,"steering":1,"offroadMax":30,"offroadDrag":1,"playerW":0.2,"spriteScale":2,"engine":true,"autoSigns":true,"minimap":false,"mmCorner":"tr","mmSize":130,"controls":true,"decor":"","decorEvery":6,"decor2":"","decor2Every":17,"seed":7,"rivalObj":"","rivals":0,"gridGap":5,"rivalMin":60,"rivalMax":85,"trafficObj":"","traffic":0,"defW":854,"defH":480}),
         "minimap" => json!({"kind":"minimap","mode":"radar","follow":"","radius":600,"shape":"round","bg":"#0b0d12","bgAlpha":75,"border":"#ffffff","borderW":2,"solids":true,"solidColor":"#8b93a6","followColor":"#ffffff","dots":[{"obj":"","color":"#ff3b4f","size":5},{"obj":"","color":"#ffd84d","size":5}],"defW":160,"defH":160}),
         "array" => json!({"kind":"array","items":[]}),
@@ -183,17 +183,17 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             // ---- niveaux
             ui.horizontal(|ui| {
-                theme::section(ui, "Niveaux");
+                theme::section(ui, crate::i18n::tr("Niveaux"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.add(theme::btn_small("+")).on_hover_text("Nouveau niveau").clicked() {
+                    if ui.add(theme::btn_small("+")).on_hover_text(crate::i18n::tr("Nouveau niveau")).clicked() {
                         app.snapshot();
                         let n = app.proj.arr("layouts").len() + 1;
                         let sid = pf_core::uid("s");
                         let lid = pf_core::uid("l");
                         let w = app.proj.get("settings").map(|s| s.f("width", 854.0)).unwrap_or(854.0);
                         let h = app.proj.get("settings").map(|s| s.f("height", 480.0)).unwrap_or(480.0);
-                        app.proj["sheets"].as_array_mut().map(|a| a.push(json!({"id":sid,"name":format!("Événements {}", n),"events":[]})));
-                        app.proj["layouts"].as_array_mut().map(|a| a.push(json!({"id":lid,"name":format!("Niveau {}", n),"w":w,"h":h,"bg":"#7ec8f2","sheet":sid,"layers":[{"id":pf_core::uid("y"),"name":"Principal","parallaxX":100,"parallaxY":100,"opacity":100,"visible":true}],"instances":[]})));
+                        app.proj["sheets"].as_array_mut().map(|a| a.push(json!({"id":sid,"name":crate::i18n::trf("Événements {0}", &[format!("{}", n)]),"events":[]})));
+                        app.proj["layouts"].as_array_mut().map(|a| a.push(json!({"id":lid,"name":crate::i18n::trf("Niveau {0}", &[format!("{}", n)]),"w":w,"h":h,"bg":"#7ec8f2","sheet":sid,"layers":[{"id":pf_core::uid("y"),"name":crate::i18n::tr("Principal"),"parallaxX":100,"parallaxY":100,"opacity":100,"visible":true}],"instances":[]})));
                         app.cur_layout = lid.clone();
                         app.cur_sheet = sid;
                         app.sel = Sel::Layout(lid);
@@ -219,17 +219,17 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                     app.view.fit_pending = true;
                 }
                 r.context_menu(|ui| {
-                    if ui.button("Niveau de départ").clicked() {
+                    if ui.button(crate::i18n::tr("Niveau de départ")).clicked() {
                         app.snapshot();
                         app.proj["settings"]["startLayout"] = Json::String(id.clone());
                         app.changed();
                         ui.close_menu();
                     }
-                    if ui.button("Dupliquer").clicked() {
+                    if ui.button(crate::i18n::tr("Dupliquer")).clicked() {
                         app.snapshot();
                         let mut c = l.clone();
                         c["id"] = Json::String(pf_core::uid("l"));
-                        c["name"] = Json::String(format!("{} (copie)", l.s("name")));
+                        c["name"] = Json::String(crate::i18n::trf("{0} (copie)", &[format!("{}", l.s("name"))]));
                         if let Some(a) = c.get_mut("instances").and_then(|v| v.as_array_mut()) {
                             for i in a {
                                 i["id"] = Json::String(pf_core::uid("i"));
@@ -239,7 +239,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                         app.changed();
                         ui.close_menu();
                     }
-                    if ui.add_enabled(app.proj.arr("layouts").len() > 1, egui::Button::new("Supprimer")).clicked() {
+                    if ui.add_enabled(app.proj.arr("layouts").len() > 1, egui::Button::new(crate::i18n::tr("Supprimer"))).clicked() {
                         app.snapshot();
                         app.proj["layouts"].as_array_mut().unwrap().retain(|x| x.s("id") != id);
                         app.fix_current();
@@ -250,13 +250,13 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
             }
             // ---- feuilles
             ui.horizontal(|ui| {
-                theme::section(ui, "Feuilles d’événements");
+                theme::section(ui, crate::i18n::tr("Feuilles d’événements"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.add(theme::btn_small("+")).on_hover_text("Nouvelle feuille (à inclure ou à associer à un niveau)").clicked() {
+                    if ui.add(theme::btn_small("+")).on_hover_text(crate::i18n::tr("Nouvelle feuille (à inclure ou à associer à un niveau)")).clicked() {
                         app.snapshot();
                         let sid = pf_core::uid("s");
                         let n = app.proj.arr("sheets").len() + 1;
-                        app.proj["sheets"].as_array_mut().map(|a| a.push(json!({"id":sid,"name":format!("Feuille {}", n),"events":[]})));
+                        app.proj["sheets"].as_array_mut().map(|a| a.push(json!({"id":sid,"name":crate::i18n::trf("Feuille {0}", &[format!("{}", n)]),"events":[]})));
                         app.cur_sheet = sid.clone();
                         app.sel = Sel::Sheet(sid);
                         app.tab = Tab::Events;
@@ -268,7 +268,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                 let id = s.s("id").to_string();
                 let on = id == app.cur_sheet && app.tab == Tab::Events;
                 let n = count_events(s.arr("events"));
-                let r = ui.add(egui::SelectableLabel::new(on, egui::RichText::new(format!("☰  {}   ", s.s("name"))).color(if on { C::TEXT() } else { C::TEXT2() }))).on_hover_text(format!("{} événement(s)", n));
+                let r = ui.add(egui::SelectableLabel::new(on, egui::RichText::new(format!("☰  {}   ", s.s("name"))).color(if on { C::TEXT() } else { C::TEXT2() }))).on_hover_text(crate::i18n::trf("{0} événement(s)", &[format!("{}", n)]));
                 if r.clicked() {
                     app.cur_sheet = id.clone();
                     app.sel = Sel::Sheet(id.clone());
@@ -277,11 +277,11 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
             }
             // ---- objets
             ui.horizontal(|ui| {
-                theme::section(ui, "Objets");
+                theme::section(ui, crate::i18n::tr("Objets"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.menu_button(egui::RichText::new("+").size(12.0), |ui| {
                         for (k, n, g) in KINDS {
-                            if ui.button(format!("{}  {}", g, n)).clicked() {
+                            if ui.button(format!("{}  {}", g, crate::i18n::tr(n))).clicked() {
                                 app.snapshot();
                                 let o = make_object(app, k);
                                 let id = o.s("id").to_string();
@@ -294,7 +294,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                     });
                 });
             });
-            ui.add(egui::TextEdit::singleline(&mut app.tree.filter).hint_text("🔍 Filtrer les objets").desired_width(f32::INFINITY));
+            ui.add(egui::TextEdit::singleline(&mut app.tree.filter).hint_text(crate::i18n::tr("🔍 Filtrer les objets")).desired_width(f32::INFINITY));
             let filt = app.tree.filter.to_lowercase();
             for o in app.proj.arr("objects").to_vec() {
                 if !filt.is_empty() && !o.s("name").to_lowercase().contains(&filt) {
@@ -317,14 +317,14 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                     app.part_ed = crate::particles::PartEd::open(app, &id);
                 }
                 let n_inst = app.layout().map(|l| l.arr("instances").iter().filter(|i| i.s("obj") == id).count()).unwrap_or(0);
-                let resp = resp.on_hover_text(format!("{} — {} instance(s) dans ce niveau\nGlissez-le dans le niveau pour en placer une.{}", kind_name(o.s("kind")), n_inst, match o.s("kind") { "sprite" => "\nDouble-clic : éditeur de sprites.", "particles" => "\nDouble-clic : éditeur de particules.", _ => "" }));
+                let resp = resp.on_hover_text(crate::i18n::trf("{0} — {1} instance(s) dans ce niveau\nGlissez-le dans le niveau pour en placer une.{2}", &[format!("{}", kind_name(o.s("kind"))), format!("{}", n_inst), format!("{}", match o.s("kind") { "sprite" => crate::i18n::tr("\nDouble-clic : éditeur de sprites."), "particles" => crate::i18n::tr("\nDouble-clic : éditeur de particules."), _ => "" })]));
                 resp.context_menu(|ui| {
-                    if ui.button("Placer au centre de la vue").clicked() {
+                    if ui.button(crate::i18n::tr("Placer au centre de la vue")).clicked() {
                         let c = app.view.center_world();
                         add_instance(app, &id, c.0, c.1);
                         ui.close_menu();
                     }
-                    if ui.button("Dupliquer l’objet").clicked() {
+                    if ui.button(crate::i18n::tr("Dupliquer l’objet")).clicked() {
                         app.snapshot();
                         let mut c = o.clone();
                         c["id"] = Json::String(pf_core::uid("o"));
@@ -333,7 +333,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                         app.changed();
                         ui.close_menu();
                     }
-                    if ui.button("Supprimer l’objet (et ses instances)").clicked() {
+                    if ui.button(crate::i18n::tr("Supprimer l’objet (et ses instances)")).clicked() {
                         app.snapshot();
                         app.proj["objects"].as_array_mut().unwrap().retain(|x| x.s("id") != id);
                         if let Some(ls) = app.proj.get_mut("layouts").and_then(|l| l.as_array_mut()) {
@@ -345,16 +345,16 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                         }
                         app.sel = Sel::None;
                         app.changed();
-                        app.toast("Objet supprimé (Ctrl+Z pour annuler).", false, now);
+                        app.toast(crate::i18n::tr("Objet supprimé (Ctrl+Z pour annuler)."), false, now);
                         ui.close_menu();
                     }
                 });
             }
             // ---- cinématiques
             ui.horizontal(|ui| {
-                theme::section(ui, "Cinématiques");
+                theme::section(ui, crate::i18n::tr("Cinématiques"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.add(theme::btn_small("+")).on_hover_text("Nouvelle cinématique").clicked() {
+                    if ui.add(theme::btn_small("+")).on_hover_text(crate::i18n::tr("Nouvelle cinématique")).clicked() {
                         crate::more::new_cine(app);
                     }
                 });
@@ -367,16 +367,16 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
             }
             // ---- sons
             ui.horizontal(|ui| {
-                theme::section(ui, "Sons");
+                theme::section(ui, crate::i18n::tr("Sons"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.add(theme::btn_small("☰")).on_hover_text("Bibliothèque de sons : écouter, rogner, importer plusieurs fichiers…").clicked() {
+                    if ui.add(theme::btn_small("☰")).on_hover_text(crate::i18n::tr("Bibliothèque de sons : écouter, rogner, importer plusieurs fichiers…")).clicked() {
                         app.snd_lib = Some(Default::default());
                     }
-                    if ui.add(theme::btn_small("✦")).on_hover_text("Créer un effet sonore (générateur)").clicked() {
+                    if ui.add(theme::btn_small("✦")).on_hover_text(crate::i18n::tr("Créer un effet sonore (générateur)")).clicked() {
                         app.sfx_ed = Some(crate::more::SfxEd::new(app, None));
                     }
-                    if ui.add(theme::btn_small("+")).on_hover_text("Importer un fichier audio (wav, mp3, ogg)").clicked() {
-                        if let Some(p) = rfd::FileDialog::new().add_filter("Audio", &["wav", "mp3", "ogg", "flac", "m4a"]).pick_file() {
+                    if ui.add(theme::btn_small("+")).on_hover_text(crate::i18n::tr("Importer un fichier audio (wav, mp3, ogg)")).clicked() {
+                        if let Some(p) = rfd::FileDialog::new().add_filter(crate::i18n::tr("Audio"), &["wav", "mp3", "ogg", "flac", "m4a"]).pick_file() {
                             if let Ok(b) = std::fs::read(&p) {
                                 let ext = p.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
                                 let mime = match ext.as_str() {
@@ -407,16 +407,16 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
             }
             // ---- variables globales
             ui.horizontal(|ui| {
-                theme::section(ui, "Variables globales");
+                theme::section(ui, crate::i18n::tr("Variables globales"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.add(theme::btn_small("+")).clicked() {
                         app.snapshot();
                         let mut k = 1;
                         let names: Vec<String> = app.proj.arr("globals").iter().map(|g| g.s("name").to_string()).collect();
-                        while names.contains(&format!("Variable{}", k)) {
+                        while names.contains(&crate::i18n::trf("Variable{0}", &[format!("{}", k)])) {
                             k += 1;
                         }
-                        let n = format!("Variable{}", k);
+                        let n = crate::i18n::trf("Variable{0}", &[format!("{}", k)]);
                         if app.proj.get("globals").is_none() {
                             app.proj["globals"] = json!([]);
                         }
@@ -435,7 +435,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
             }
             ui.add_space(10.0);
-            if ui.add(egui::SelectableLabel::new(false, egui::RichText::new("⚙  Paramètres du jeu").color(C::TEXT2()))).clicked() {
+            if ui.add(egui::SelectableLabel::new(false, egui::RichText::new(crate::i18n::tr("⚙  Paramètres du jeu")).color(C::TEXT2()))).clicked() {
                 app.sel = Sel::None;
             }
         });

@@ -10,6 +10,7 @@ mod theme;
 mod export;
 mod find;
 mod history;
+mod i18n;
 mod more;
 mod particles;
 mod tools;
@@ -131,6 +132,15 @@ pub struct App {
 impl App {
     fn new(cc: &eframe::CreationContext) -> App {
         theme::C::LIGHT.store(load_prefs().get("light").and_then(|v| v.as_bool()).unwrap_or(false), std::sync::atomic::Ordering::Relaxed);
+        {
+            let pr = load_prefs();
+            let en = match pr.get("lang").and_then(|v| v.as_str()) {
+                Some(l) => l == "en",
+                None => i18n::system_is_en(),
+            };
+            let en = std::env::var("PF_LANG").map(|l| l == "en").unwrap_or(en);
+            i18n::set_en(en);
+        }
         theme::install(&cc.egui_ctx);
         let args: Vec<String> = std::env::args().collect();
         if std::env::var("PF_LIGHT").is_ok() {
@@ -362,19 +372,19 @@ impl App {
     pub fn open_path(&mut self, path: PathBuf) {
         match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|s| serde_json::from_str::<Json>(&s).map_err(|e| e.to_string())) {
             Ok(p) if p.get("objects").is_some() => self.load_project(p, Some(path)),
-            Ok(_) => self.toast("Ce fichier n’est pas un projet PlatForge.", true, 0.0),
-            Err(e) => self.toast(format!("Impossible d’ouvrir : {}", e), true, 0.0),
+            Ok(_) => self.toast(crate::i18n::tr("Ce fichier n’est pas un projet PlatForge."), true, 0.0),
+            Err(e) => self.toast(crate::i18n::trf("Impossible d’ouvrir : {0}", &[format!("{}", e)]), true, 0.0),
         }
     }
     pub fn open_dialog(&mut self) {
-        if let Some(p) = rfd::FileDialog::new().add_filter("Projet PlatForge", &["json", "pfproj", "platforge"]).pick_file() {
+        if let Some(p) = rfd::FileDialog::new().add_filter(crate::i18n::tr("Projet PlatForge"), &["json", "pfproj", "platforge"]).pick_file() {
             self.open_path(p);
         }
     }
     pub fn save(&mut self, as_new: bool, now: f64) {
         let path = if as_new || self.path.is_none() {
             let name = format!("{}.json", util::slug(self.proj.get("settings").map(|s| s.s("title")).unwrap_or("jeu")));
-            match rfd::FileDialog::new().add_filter("Projet PlatForge", &["json"]).set_file_name(name).save_file() {
+            match rfd::FileDialog::new().add_filter(crate::i18n::tr("Projet PlatForge"), &["json"]).set_file_name(name).save_file() {
                 Some(p) => p,
                 None => return,
             }
@@ -385,15 +395,15 @@ impl App {
             Ok(_) => {
                 self.path = Some(path.clone());
                 self.dirty = false;
-                self.toast(format!("Enregistré : {}", path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default()), false, now);
+                self.toast(crate::i18n::trf("Enregistré : {0}", &[format!("{}", path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default())]), false, now);
             }
-            Err(e) => self.toast(format!("Échec de l’enregistrement : {}", e), true, now),
+            Err(e) => self.toast(crate::i18n::trf("Échec de l’enregistrement : {0}", &[format!("{}", e)]), true, now),
         }
     }
     /// jeu autonome : copie de l'application + le projet, lancé en mode joueur
     pub fn export_game(&mut self, now: f64) {
         let title = self.proj.get("settings").map(|s| s.s("title").to_string()).unwrap_or_else(|| "jeu".into());
-        let dir = match rfd::FileDialog::new().set_title("Dossier où exporter le jeu").pick_folder() {
+        let dir = match rfd::FileDialog::new().set_title(crate::i18n::tr("Dossier où exporter le jeu")).pick_folder() {
             Some(d) => d.join(util::slug(&title)),
             None => return,
         };
@@ -404,8 +414,8 @@ impl App {
             let dst = dir.join(format!("{}{}", util::slug(&title), ext));
             std::fs::copy(&exe, &dst).map_err(|e| e.to_string())?;
             std::fs::write(dir.join("jeu.json"), serde_json::to_string(&self.proj).unwrap_or_default()).map_err(|e| e.to_string())?;
-            let launch = if cfg!(windows) { format!("@echo off\r\nstart \"\" \"%~dp0{}{}\" --play \"%~dp0jeu.json\"\r\n", util::slug(&title), ext) } else { format!("#!/bin/sh\ncd \"$(dirname \"$0\")\"\n./{} --play jeu.json\n", util::slug(&title)) };
-            let lp = dir.join(if cfg!(windows) { "Jouer.bat" } else { "jouer.sh" });
+            let launch = if cfg!(windows) { crate::i18n::trf("@echo off\r\nstart \"\" \"%~dp0{0}{1}\" --play \"%~dp0jeu.json\"\r\n", &[format!("{}", util::slug(&title)), format!("{}", ext)]) } else { format!("#!/bin/sh\ncd \"$(dirname \"$0\")\"\n./{} --play jeu.json\n", util::slug(&title)) };
+            let lp = dir.join(if cfg!(windows) { crate::i18n::tr("Jouer.bat") } else { "jouer.sh" });
             std::fs::write(&lp, launch).map_err(|e| e.to_string())?;
             #[cfg(unix)]
             {
@@ -415,8 +425,8 @@ impl App {
             Ok(dir.clone())
         })();
         match r {
-            Ok(d) => self.toast(format!("Jeu exporté dans {}", d.display()), false, now),
-            Err(e) => self.toast(format!("Export impossible : {}", e), true, now),
+            Ok(d) => self.toast(crate::i18n::trf("Jeu exporté dans {0}", &[format!("{}", d.display())]), false, now),
+            Err(e) => self.toast(crate::i18n::trf("Export impossible : {0}", &[format!("{}", e)]), true, now),
         }
     }
 
@@ -442,7 +452,7 @@ impl eframe::App for App {
         let _ = frame;
         let now = ctx.input(|i| i.time);
         self.ensure_defs();
-        let title = format!("{}{} — PlatForge Studio", if self.dirty { "• " } else { "" }, self.proj.get("settings").map(|s| s.s("title")).unwrap_or("Jeu"));
+        let title = crate::i18n::trf("{0}{1} — PlatForge Studio", &[format!("{}", if self.dirty { "• " } else { "" }), format!("{}", self.proj.get("settings").map(|s| s.s("title")).unwrap_or(crate::i18n::tr("Jeu")))]);
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
 
         // raccourcis globaux
@@ -508,14 +518,14 @@ impl eframe::App for App {
             self.templates_window(ctx);
         }
         if let Some(t) = self.confirm_new.clone() {
-            egui::Window::new("Projet non enregistré").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
-                ui.label("Les modifications du projet actuel seront perdues.");
+            egui::Window::new(crate::i18n::tr("Projet non enregistré")).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+                ui.label(crate::i18n::tr("Les modifications du projet actuel seront perdues."));
                 ui.horizontal(|ui| {
-                    if ui.button("Continuer").clicked() {
+                    if ui.button(crate::i18n::tr("Continuer")).clicked() {
                         self.confirm_new = None;
                         self.load_project(tpl::make(&t), None);
                     }
-                    if ui.button("Annuler").clicked() {
+                    if ui.button(crate::i18n::tr("Annuler")).clicked() {
                         self.confirm_new = None;
                     }
                 });
@@ -541,102 +551,109 @@ impl App {
                 ui.label(egui::RichText::new("Studio").size(16.0).color(C::MUTED()));
                 ui.add_space(14.0);
                 if self.play.is_some() {
-                    if ui.add(theme::btn_accent("■  Arrêter (Échap)")).clicked() {
+                    if ui.add(theme::btn_accent(crate::i18n::tr("■  Arrêter (Échap)"))).clicked() {
                         self.stop_play();
                     }
-                    let restart = ui.add(theme::btn("↻  Recommencer")).clicked();
+                    let restart = ui.add(theme::btn(crate::i18n::tr("↻  Recommencer"))).clicked();
                     if restart {
                         if let Some(p) = self.play.as_mut() {
                             p.rt.restart();
                         }
                     }
                     if let Some(p) = self.play.as_mut() {
-                        let pl = if p.rt.paused { "▶  Reprendre" } else { "❚❚  Pause" };
+                        let pl = if p.rt.paused { crate::i18n::tr("▶  Reprendre") } else { crate::i18n::tr("❚❚  Pause") };
                         if ui.add(theme::btn(pl)).clicked() {
                             p.rt.paused = !p.rt.paused;
                         }
-                        if p.rt.paused && ui.add(theme::btn("⏭  Image suivante")).clicked() {
+                        if p.rt.paused && ui.add(theme::btn(crate::i18n::tr("⏭  Image suivante"))).clicked() {
                             p.rt.step_req = true;
                         }
-                        ui.toggle_value(&mut p.show_dbg, "Débogueur");
-                        ui.toggle_value(&mut p.rt.show_col, "Collisions");
-                        ui.label(egui::RichText::new(format!("Niveau : {}", p.rt.layout_name())).color(C::MUTED()));
+                        ui.toggle_value(&mut p.show_dbg, crate::i18n::tr("Débogueur"));
+                        ui.toggle_value(&mut p.rt.show_col, crate::i18n::tr("Collisions"));
+                        ui.label(egui::RichText::new(crate::i18n::trf("Niveau : {0}", &[format!("{}", p.rt.layout_name())])).color(C::MUTED()));
                         if let (Some((_, t)), true) = (&p.rt.brk_hit, p.rt.paused) {
-                            ui.label(egui::RichText::new(format!("● Point d’arrêt atteint (image {}) — « Reprendre » pour continuer", t)).color(C::DANGER()));
+                            ui.label(egui::RichText::new(crate::i18n::trf("● Point d’arrêt atteint (image {0}) — « Reprendre » pour continuer", &[format!("{}", t)])).color(C::DANGER()));
                         }
                     }
                     return;
                 }
-                ui.menu_button(egui::RichText::new("Fichier").color(C::TEXT2()), |ui| {
-                    if ui.button("Nouveau depuis un modèle…").clicked() {
+                ui.menu_button(egui::RichText::new(crate::i18n::tr("Fichier")).color(C::TEXT2()), |ui| {
+                    if ui.button(crate::i18n::tr("Nouveau depuis un modèle…")).clicked() {
                         self.show_templates = true;
                         ui.close_menu();
                     }
-                    if ui.button("Ouvrir…  (Ctrl+O)").clicked() {
+                    if ui.button(crate::i18n::tr("Ouvrir…  (Ctrl+O)")).clicked() {
                         ui.close_menu();
                         self.open_dialog();
                     }
-                    if ui.button("Enregistrer  (Ctrl+S)").clicked() {
+                    if ui.button(crate::i18n::tr("Enregistrer  (Ctrl+S)")).clicked() {
                         ui.close_menu();
                         self.save(false, now);
                     }
-                    if ui.button("Enregistrer sous…").clicked() {
+                    if ui.button(crate::i18n::tr("Enregistrer sous…")).clicked() {
                         ui.close_menu();
                         self.save(true, now);
                     }
                     ui.separator();
-                    if ui.button("Exporter le jeu (web, installable ou application)…").clicked() {
+                    if ui.button(crate::i18n::tr("Exporter le jeu (web, installable ou application)…")).clicked() {
                         ui.close_menu();
                         self.export = Some(export::ExportState::new(self));
                     }
                 });
-                ui.menu_button(egui::RichText::new("Édition").color(C::TEXT2()), |ui| {
-                    if ui.add_enabled(!self.undo.is_empty(), egui::Button::new("Annuler  (Ctrl+Z)")).clicked() {
+                ui.menu_button(egui::RichText::new(crate::i18n::tr("Édition")).color(C::TEXT2()), |ui| {
+                    if ui.add_enabled(!self.undo.is_empty(), egui::Button::new(crate::i18n::tr("Annuler  (Ctrl+Z)"))).clicked() {
                         self.do_undo();
                         ui.close_menu();
                     }
-                    if ui.add_enabled(!self.redo.is_empty(), egui::Button::new("Rétablir  (Ctrl+Y)")).clicked() {
+                    if ui.add_enabled(!self.redo.is_empty(), egui::Button::new(crate::i18n::tr("Rétablir  (Ctrl+Y)"))).clicked() {
                         self.do_redo();
                         ui.close_menu();
                     }
-                    if ui.button("Historique des modifications…  (Ctrl+H)").clicked() {
+                    if ui.button(crate::i18n::tr("Historique des modifications…  (Ctrl+H)")).clicked() {
                         self.show_hist = true;
                         ui.close_menu();
                     }
-                    if ui.button("Rechercher / remplacer…  (Ctrl+F)").clicked() {
+                    if ui.button(crate::i18n::tr("Rechercher / remplacer…  (Ctrl+F)")).clicked() {
                         self.find = Some(find::FindState::default());
                         ui.close_menu();
                     }
                     ui.separator();
-                    if ui.button("Dupliquer la sélection  (Ctrl+D)").clicked() {
+                    if ui.button(crate::i18n::tr("Dupliquer la sélection  (Ctrl+D)")).clicked() {
                         self.duplicate_selection();
                         ui.close_menu();
                     }
-                    if ui.button("Supprimer la sélection  (Suppr)").clicked() {
+                    if ui.button(crate::i18n::tr("Supprimer la sélection  (Suppr)")).clicked() {
                         self.delete_selection();
                         ui.close_menu();
                     }
                 });
-                if ui.add(egui::Button::new(egui::RichText::new("Aide").color(C::TEXT2())).frame(false)).clicked() {
+                if ui.add(egui::Button::new(egui::RichText::new(crate::i18n::tr("Aide")).color(C::TEXT2())).frame(false)).clicked() {
                     self.help = !self.help;
                 }
                 ui.add_space(8.0);
-                if ui.add(theme::btn_accent("▶  Tester  (F5)")).on_hover_text("Lance le jeu depuis le niveau de départ").clicked() {
+                if ui.add(theme::btn_accent(crate::i18n::tr("▶  Tester  (F5)"))).on_hover_text(crate::i18n::tr("Lance le jeu depuis le niveau de départ")).clicked() {
                     self.start_play(None);
                 }
-                if ui.add(theme::btn("▶  Ce niveau")).on_hover_text("Lance le jeu sur le niveau affiché").clicked() {
+                if ui.add(theme::btn(crate::i18n::tr("▶  Ce niveau"))).on_hover_text(crate::i18n::tr("Lance le jeu sur le niveau affiché")).clicked() {
                     let l = self.cur_layout.clone();
                     self.start_play(Some(l));
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let en = i18n::is_en();
+                    if ui.add(egui::Button::new(egui::RichText::new(if en { "EN" } else { "FR" }).small()).frame(false)).on_hover_text(if en { "Interface : English — cliquer pour le français" } else { "Interface : français — click for English" }).clicked() {
+                        i18n::set_en(!en);
+                        let mut p = load_prefs();
+                        p["lang"] = Json::String(if en { "fr" } else { "en" }.into());
+                        save_prefs(&p);
+                    }
                     let light = theme::C::LIGHT.load(std::sync::atomic::Ordering::Relaxed);
-                    if ui.add(egui::Button::new(if light { "☾" } else { "☀" }).frame(false)).on_hover_text(if light { "Passer au thème sombre" } else { "Passer au thème clair" }).clicked() {
+                    if ui.add(egui::Button::new(if light { "☾" } else { "☀" }).frame(false)).on_hover_text(if light { crate::i18n::tr("Passer au thème sombre") } else { crate::i18n::tr("Passer au thème clair") }).clicked() {
                         theme::set_light(ui.ctx(), !light);
                         let mut p = load_prefs();
                         p["light"] = Json::Bool(!light);
                         save_prefs(&p);
                     }
-                    let name = self.path.as_ref().and_then(|p| p.file_name()).map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "projet non enregistré".into());
+                    let name = self.path.as_ref().and_then(|p| p.file_name()).map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| crate::i18n::tr("projet non enregistré").into());
                     ui.label(egui::RichText::new(name).color(C::DIM()));
                 });
             });
@@ -651,10 +668,10 @@ impl App {
             ui.horizontal(|ui| {
                 let lname = self.layout().map(|l| l.s("name").to_string()).unwrap_or_default();
                 let sname = self.proj.arr("sheets").iter().find(|s| s.s("id") == self.cur_sheet).map(|s| s.s("name").to_string()).unwrap_or_default();
-                if ui.add(theme::tab(self.tab == Tab::Layout, &format!("▦  Niveau : {}", lname))).clicked() {
+                if ui.add(theme::tab(self.tab == Tab::Layout, &crate::i18n::trf("▦  Niveau : {0}", &[format!("{}", lname)]))).clicked() {
                     self.tab = Tab::Layout;
                 }
-                if ui.add(theme::tab(self.tab == Tab::Events, &format!("☰  Événements : {}", sname))).clicked() {
+                if ui.add(theme::tab(self.tab == Tab::Events, &crate::i18n::trf("☰  Événements : {0}", &[format!("{}", sname)]))).clicked() {
                     self.tab = Tab::Events;
                 }
             });
@@ -664,8 +681,8 @@ impl App {
     fn templates_window(&mut self, ctx: &egui::Context) {
         let mut open = true;
         let (dsz, msz) = theme::fit(ctx, 760.0, 640.0);
-        egui::Window::new("Nouveau projet").open(&mut open).collapsible(false).resizable(false).default_width(dsz.x).max_size(msz).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
-            ui.label(egui::RichText::new("Choisissez un point de départ : chaque modèle est un jeu complet que vous pouvez modifier.").color(C::MUTED()));
+        egui::Window::new(crate::i18n::tr("Nouveau projet")).open(&mut open).collapsible(false).resizable(false).default_width(dsz.x).max_size(msz).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+            ui.label(egui::RichText::new(crate::i18n::tr("Choisissez un point de départ : chaque modèle est un jeu complet que vous pouvez modifier.")).color(C::MUTED()));
             ui.add_space(8.0);
             egui::ScrollArea::vertical().max_height((msz.y - 110.0).min(520.0)).show(ui, |ui| {
                 let two = msz.x > 740.0;
@@ -675,8 +692,8 @@ impl App {
                             ui.vertical(|ui| {
                                 ui.set_width(340.0);
                                 ui.set_height(58.0);
-                                ui.label(egui::RichText::new(t.1).strong().size(15.0).color(C::TEXT()));
-                                ui.add(egui::Label::new(egui::RichText::new(t.2).color(C::MUTED())).wrap());
+                                ui.label(egui::RichText::new(crate::i18n::tr(t.1)).strong().size(15.0).color(C::TEXT()));
+                                ui.add(egui::Label::new(egui::RichText::new(crate::i18n::tr(t.2)).color(C::MUTED())).wrap());
                             });
                         });
                         let resp = r.response.interact(egui::Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -699,7 +716,7 @@ impl App {
             });
             ui.add_space(6.0);
             ui.horizontal(|ui| {
-                if ui.button("Ouvrir un projet existant…").clicked() {
+                if ui.button(crate::i18n::tr("Ouvrir un projet existant…")).clicked() {
                     self.show_templates = false;
                     self.open_dialog();
                 }
@@ -837,7 +854,7 @@ impl App {
                 }
             });
             if !p.rt.errors.is_empty() {
-                let txt = format!("Erreur d’expression : {}", p.rt.errors.last().unwrap());
+                let txt = crate::i18n::trf("Erreur d’expression : {0}", &[format!("{}", p.rt.errors.last().unwrap())]);
                 ui.painter().text(rect.left_bottom() + egui::vec2(8.0, -8.0), egui::Align2::LEFT_BOTTOM, txt, egui::FontId::proportional(13.0), C::DANGER());
             }
         });
@@ -866,7 +883,7 @@ fn save_prefs(p: &Json) {
 fn help_window(app: &mut App, ctx: &egui::Context) {
     let mut open = true;
     let (dsz, msz) = theme::fit(ctx, 620.0, 620.0);
-    egui::Window::new("Aide").open(&mut open).default_size(dsz).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
+    egui::Window::new(crate::i18n::tr("Aide")).open(&mut open).default_size(dsz).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
         let sec = |ui: &mut egui::Ui, t: &str, lines: &[&str]| {
             ui.label(egui::RichText::new(t).strong().size(15.0).color(C::ACCENT()));
             for l in lines {
@@ -874,44 +891,45 @@ fn help_window(app: &mut App, ctx: &egui::Context) {
             }
             ui.add_space(8.0);
         };
-        sec(ui, "Démarrer", &[
-            "Fichier ▸ Nouveau depuis un modèle : chaque modèle est un jeu complet à modifier.",
-            "▶ Tester (F5) lance le jeu ; Échap revient à l’éditeur. « Ce niveau » démarre sur le niveau affiché.",
-            "Les projets sont des fichiers .json, compatibles avec la version HTML de PlatForge.",
+        sec(ui, crate::i18n::tr("Démarrer"), &[
+            crate::i18n::tr("Fichier ▸ Nouveau depuis un modèle : chaque modèle est un jeu complet à modifier."),
+            crate::i18n::tr("▶ Tester (F5) lance le jeu ; Échap revient à l’éditeur. « Ce niveau » démarre sur le niveau affiché."),
+            crate::i18n::tr("Les projets sont des fichiers .json, compatibles avec la version HTML de PlatForge."),
+            crate::i18n::tr("Le bouton FR / EN en haut à droite change la langue de l’interface ; ☀ / ☾ le thème."),
         ]);
-        sec(ui, "Le niveau", &[
-            "Glissez un objet du panneau de gauche dans le niveau pour en placer une instance.",
-            "Clic : sélectionner · glisser : déplacer · carré orange : redimensionner (Maj = proportions).",
-            "Molette : zoom · clic du milieu, clic droit ou Espace + glisser : se déplacer.",
-            "Flèches : déplacer la sélection de 1 px (Maj : d’une case de grille) · Alt : sans aimantation.",
-            "Ctrl+D : dupliquer · Suppr : supprimer · double-clic : propriétés de l’objet.",
-            "Carte de tuiles sélectionnée : « Peindre les tuiles » (clic droit = effacer).",
-            "Instance avec le comportement Trajectoire : « Trajectoire » pour placer les points.",
+        sec(ui, crate::i18n::tr("Le niveau"), &[
+            crate::i18n::tr("Glissez un objet du panneau de gauche dans le niveau pour en placer une instance."),
+            crate::i18n::tr("Clic : sélectionner · glisser : déplacer · carré orange : redimensionner (Maj = proportions)."),
+            crate::i18n::tr("Molette : zoom · clic du milieu, clic droit ou Espace + glisser : se déplacer."),
+            crate::i18n::tr("Flèches : déplacer la sélection de 1 px (Maj : d’une case de grille) · Alt : sans aimantation."),
+            crate::i18n::tr("Ctrl+D : dupliquer · Suppr : supprimer · double-clic : propriétés de l’objet."),
+            crate::i18n::tr("Carte de tuiles sélectionnée : « Peindre les tuiles » (clic droit = effacer)."),
+            crate::i18n::tr("Instance avec le comportement Trajectoire : « Trajectoire » pour placer les points."),
         ]);
-        sec(ui, "Les événements", &[
-            "Un événement = des conditions (à gauche) qui, si elles sont toutes vraies, déclenchent les actions (à droite).",
-            "Les sous-événements ne s’exécutent que si leur parent est vrai ; « Sinon » joue si l’événement précédent ne l’a pas été.",
-            "Les expressions acceptent + - * / ^ %, & (texte), = <> < > <= >=, et / ou / non, a ? b : c,",
-            "les variables (Score), les propriétés (Joueur.X, Joueur.Speed) et des fonctions (random, round, distance…).",
-            "Ctrl+C / Ctrl+V copient et collent des événements, même entre feuilles. « ● Point d’arrêt » met le test en pause.",
+        sec(ui, crate::i18n::tr("Les événements"), &[
+            crate::i18n::tr("Un événement = des conditions (à gauche) qui, si elles sont toutes vraies, déclenchent les actions (à droite)."),
+            crate::i18n::tr("Les sous-événements ne s’exécutent que si leur parent est vrai ; « Sinon » joue si l’événement précédent ne l’a pas été."),
+            crate::i18n::tr("Les expressions acceptent + - * / ^ %, & (texte), = <> < > <= >=, et / ou / non, a ? b : c,"),
+            crate::i18n::tr("les variables (Score), les propriétés (Joueur.X, Joueur.Speed) et des fonctions (random, round, distance…)."),
+            crate::i18n::tr("Ctrl+C / Ctrl+V copient et collent des événements, même entre feuilles. « ● Point d’arrêt » met le test en pause."),
         ]);
-        sec(ui, "Les éditeurs", &[
-            "Sprite : double-clic sur l’objet. S sélection, B crayon, E gomme, G remplir, I pipette, L ligne, R rectangle,",
-            "U ellipse, O origine, C boîte de collision, P polygone, N points d’image, Ctrl+Z annuler.",
-            "Sprite, sélection : glisser dedans pour la déplacer (Alt : copie), Ctrl+C / X / V (aussi d’un sprite à l’autre), flèches, Suppr.",
-            "Sprite : « Plein » pour les formes pleines, « Sym. » pour dessiner en miroir, « Transformer » pour retourner, tourner, contourer…",
-            "Tuiles : pinceau, rectangle, remplissage ou terrain automatique ; glisser dans la palette = tampon de plusieurs tuiles ; Alt+clic = pipette.",
-            "Particules : double-clic sur l’objet pour l’éditeur avec aperçu en direct.",
-            "Sons : ☰ ouvre la bibliothèque (écoute, rognage, volume, fondus, import multiple), ✦ crée un effet sonore.",
-            "Cinématiques : + dans la rubrique Cinématiques ; jouez-les avec l’action « Jouer une cinématique ».",
-            "Route 3D : « Éditeur visuel de la piste » dans ses propriétés.",
+        sec(ui, crate::i18n::tr("Les éditeurs"), &[
+            crate::i18n::tr("Sprite : double-clic sur l’objet. S sélection, B crayon, E gomme, G remplir, I pipette, L ligne, R rectangle,"),
+            crate::i18n::tr("U ellipse, O origine, C boîte de collision, P polygone, N points d’image, Ctrl+Z annuler."),
+            crate::i18n::tr("Sprite, sélection : glisser dedans pour la déplacer (Alt : copie), Ctrl+C / X / V (aussi d’un sprite à l’autre), flèches, Suppr."),
+            crate::i18n::tr("Sprite : « Plein » pour les formes pleines, « Sym. » pour dessiner en miroir, « Transformer » pour retourner, tourner, contourer…"),
+            crate::i18n::tr("Tuiles : pinceau, rectangle, remplissage ou terrain automatique ; glisser dans la palette = tampon de plusieurs tuiles ; Alt+clic = pipette."),
+            crate::i18n::tr("Particules : double-clic sur l’objet pour l’éditeur avec aperçu en direct."),
+            crate::i18n::tr("Sons : ☰ ouvre la bibliothèque (écoute, rognage, volume, fondus, import multiple), ✦ crée un effet sonore."),
+            crate::i18n::tr("Cinématiques : + dans la rubrique Cinématiques ; jouez-les avec l’action « Jouer une cinématique »."),
+            crate::i18n::tr("Route 3D : « Éditeur visuel de la piste » dans ses propriétés."),
         ]);
-        sec(ui, "Raccourcis", &[
-            "Ctrl+S enregistrer · Ctrl+O ouvrir · Ctrl+Z / Ctrl+Y annuler / rétablir · Ctrl+H historique · Ctrl+F rechercher · F5 tester.",
-            "Pendant le jeu : M coupe le son.",
+        sec(ui, crate::i18n::tr("Raccourcis"), &[
+            crate::i18n::tr("Ctrl+S enregistrer · Ctrl+O ouvrir · Ctrl+Z / Ctrl+Y annuler / rétablir · Ctrl+H historique · Ctrl+F rechercher · F5 tester."),
+            crate::i18n::tr("Pendant le jeu : M coupe le son."),
         ]);
-        sec(ui, "Publier", &[
-            "Fichier ▸ Exporter : page web (.html), jeu web installable (.zip pour itch.io, GitHub Pages…) ou application de bureau.",
+        sec(ui, crate::i18n::tr("Publier"), &[
+            crate::i18n::tr("Fichier ▸ Exporter : page web (.html), jeu web installable (.zip pour itch.io, GitHub Pages…) ou application de bureau."),
         ]);
     });
     if !open {

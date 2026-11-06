@@ -84,19 +84,19 @@ const EASES: &[(&str, &str)] = &[("inout", "Douce"), ("linear", "Linéaire"), ("
 type F = (&'static str, &'static str, &'static str, &'static str);
 fn csteps() -> Vec<(&'static str, &'static str, &'static str, Vec<F>)> {
     vec![
-        ("say", "Dialogue", "💬", vec![("who", "Nom", "text", "Pixel"), ("text", "Réplique", "area", "Bonjour !"), ("pos", "Position", "pos", "bottom"), ("o", "Portrait (facultatif)", "objopt", "")]),
-        ("wait", "Attendre", "⏱", vec![("d", "Durée (s)", "num", "1")]),
-        ("camto", "Caméra vers un point", "🎥", vec![("x", "X", "expr", "LayoutWidth / 2"), ("y", "Y", "expr", "LayoutHeight / 2"), ("d", "Durée (s)", "num", "1.5"), ("zoom", "Zoom (%, vide = inchangé)", "numopt", ""), ("ease", "Mouvement", "ease", "inout")]),
-        ("camobj", "Caméra sur un objet", "🎯", vec![("o", "Objet", "obj", ""), ("d", "Durée (s)", "num", "1"), ("zoom", "Zoom (%, vide = inchangé)", "numopt", ""), ("ease", "Mouvement", "ease", "inout")]),
-        ("camback", "Caméra : retour au joueur", "↩", vec![("d", "Durée (s)", "num", "1"), ("ease", "Mouvement", "ease", "inout")]),
-        ("move", "Déplacer un objet", "➜", vec![("o", "Objet", "obj", ""), ("x", "X", "expr", "100"), ("y", "Y", "expr", "0"), ("rel", "Relatif (décalage depuis sa position)", "bool", "true"), ("d", "Durée (s)", "num", "1"), ("ease", "Mouvement", "ease", "inout"), ("face", "Se tourner dans le sens du trajet", "bool", "true")]),
-        ("anim", "Changer d’animation", "🎞", vec![("o", "Objet", "obj", ""), ("a", "Animation", "anim", "")]),
-        ("title", "Titre à l’écran", "T", vec![("text", "Texte", "text", "Chapitre 1"), ("d", "Durée (s)", "num", "2.5")]),
-        ("fade", "Fondu", "◐", vec![("mode", "Sens", "fmode", "out"), ("d", "Durée (s)", "num", "0.6"), ("color", "Couleur", "color", "#000000")]),
-        ("sound", "Son", "♪", vec![("s", "Son", "sound", "powerup")]),
-        ("vis", "Afficher / masquer", "👁", vec![("o", "Objet", "obj", ""), ("v", "Visible", "bool", "true")]),
-        ("shake", "Secousse", "≋", vec![("a", "Intensité (px)", "num", "6"), ("d", "Durée (s)", "num", "0.4")]),
-        ("call", "Appeler une fonction", "ƒ", vec![("f", "Fonction", "fn", "")]),
+        ("say", crate::i18n::tr("Dialogue"), "💬", vec![("who", crate::i18n::tr("Nom"), "text", "Pixel"), ("text", crate::i18n::tr("Réplique"), "area", crate::i18n::tr("Bonjour !")), ("pos", crate::i18n::tr("Position"), "pos", "bottom"), ("o", crate::i18n::tr("Portrait (facultatif)"), "objopt", "")]),
+        ("wait", crate::i18n::tr("Attendre"), "⏱", vec![("d", crate::i18n::tr("Durée (s)"), "num", "1")]),
+        ("camto", crate::i18n::tr("Caméra vers un point"), "🎥", vec![("x", "X", "expr", "LayoutWidth / 2"), ("y", "Y", "expr", "LayoutHeight / 2"), ("d", crate::i18n::tr("Durée (s)"), "num", "1.5"), ("zoom", crate::i18n::tr("Zoom (%, vide = inchangé)"), "numopt", ""), ("ease", crate::i18n::tr("Mouvement"), "ease", "inout")]),
+        ("camobj", crate::i18n::tr("Caméra sur un objet"), "🎯", vec![("o", crate::i18n::tr("Objet"), "obj", ""), ("d", crate::i18n::tr("Durée (s)"), "num", "1"), ("zoom", crate::i18n::tr("Zoom (%, vide = inchangé)"), "numopt", ""), ("ease", crate::i18n::tr("Mouvement"), "ease", "inout")]),
+        ("camback", crate::i18n::tr("Caméra : retour au joueur"), "↩", vec![("d", crate::i18n::tr("Durée (s)"), "num", "1"), ("ease", crate::i18n::tr("Mouvement"), "ease", "inout")]),
+        ("move", crate::i18n::tr("Déplacer un objet"), "➜", vec![("o", crate::i18n::tr("Objet"), "obj", ""), ("x", "X", "expr", "100"), ("y", "Y", "expr", "0"), ("rel", crate::i18n::tr("Relatif (décalage depuis sa position)"), "bool", "true"), ("d", crate::i18n::tr("Durée (s)"), "num", "1"), ("ease", crate::i18n::tr("Mouvement"), "ease", "inout"), ("face", crate::i18n::tr("Se tourner dans le sens du trajet"), "bool", "true")]),
+        ("anim", crate::i18n::tr("Changer d’animation"), "🎞", vec![("o", crate::i18n::tr("Objet"), "obj", ""), ("a", crate::i18n::tr("Animation"), "anim", "")]),
+        ("title", crate::i18n::tr("Titre à l’écran"), "T", vec![("text", crate::i18n::tr("Texte"), "text", crate::i18n::tr("Chapitre 1")), ("d", crate::i18n::tr("Durée (s)"), "num", "2.5")]),
+        ("fade", crate::i18n::tr("Fondu"), "◐", vec![("mode", crate::i18n::tr("Sens"), "fmode", "out"), ("d", crate::i18n::tr("Durée (s)"), "num", "0.6"), ("color", crate::i18n::tr("Couleur"), "color", "#000000")]),
+        ("sound", crate::i18n::tr("Son"), "♪", vec![("s", crate::i18n::tr("Son"), "sound", "powerup")]),
+        ("vis", crate::i18n::tr("Afficher / masquer"), "👁", vec![("o", crate::i18n::tr("Objet"), "obj", ""), ("v", crate::i18n::tr("Visible"), "bool", "true")]),
+        ("shake", crate::i18n::tr("Secousse"), "≋", vec![("a", crate::i18n::tr("Intensité (px)"), "num", "6"), ("d", crate::i18n::tr("Durée (s)"), "num", "0.4")]),
+        ("call", crate::i18n::tr("Appeler une fonction"), "ƒ", vec![("f", crate::i18n::tr("Fonction"), "fn", "")]),
     ]
 }
 fn step_new(t: &str) -> Json {
@@ -118,16 +118,16 @@ fn summary(app: &App, s: &Json) -> String {
     match s.s("t") {
         "say" => format!("{}« {} »", if s.s("who").is_empty() { String::new() } else { format!("{} : ", s.s("who")) }, s.s("text").chars().take(40).collect::<String>()),
         "wait" => format!("{} s", n("d")),
-        "camto" => format!("({}, {}) en {} s", n("x"), n("y"), n("d")),
-        "camobj" => format!("{} en {} s", on("o"), n("d")),
+        "camto" => crate::i18n::trf("({0}, {1}) en {2} s", &[format!("{}", n("x")), format!("{}", n("y")), format!("{}", n("d"))]),
+        "camobj" => crate::i18n::trf("{0} en {1} s", &[format!("{}", on("o")), format!("{}", n("d"))]),
         "camback" => format!("{} s", n("d")),
-        "move" => format!("{}{}({}, {}) en {} s", on("o"), if pf_runtime::rt::jtruthy(s.get("rel")) { " de " } else { " vers " }, n("x"), n("y"), n("d")),
+        "move" => crate::i18n::trf("{0}{1}({2}, {3}) en {4} s", &[format!("{}", on("o")), format!("{}", if pf_runtime::rt::jtruthy(s.get("rel")) { crate::i18n::tr(" de ") } else { crate::i18n::tr(" vers ") }), format!("{}", n("x")), format!("{}", n("y")), format!("{}", n("d"))]),
         "anim" => format!("{} → {}", on("o"), n("a")),
         "title" => format!("« {} »", s.s("text")),
-        "fade" => format!("{} le noir, {} s", if s.s("mode") == "in" { "depuis" } else { "vers" }, n("d")),
+        "fade" => crate::i18n::trf("{0} le noir, {1} s", &[format!("{}", if s.s("mode") == "in" { "depuis" } else { "vers" }), format!("{}", n("d"))]),
         "sound" => n("s"),
-        "vis" => format!("{}{}", on("o"), if s.get("v") != Some(&Json::Bool(false)) { " visible" } else { " masqué" }),
-        "shake" => format!("{} px, {} s", n("a"), n("d")),
+        "vis" => format!("{}{}", on("o"), if s.get("v") != Some(&Json::Bool(false)) { crate::i18n::tr(" visible") } else { crate::i18n::tr(" masqué") }),
+        "shake" => crate::i18n::trf("{0} px, {1} s", &[format!("{}", n("a")), format!("{}", n("d"))]),
         "call" => n("f"),
         t => t.to_string(),
     }
@@ -153,23 +153,23 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
     let mut delete = false;
     let defs = csteps();
     let (dsz, msz) = theme::fit(ctx, 620.0, 600.0);
-    egui::Window::new(format!("Cinématique — {}", c.s("name"))).id(egui::Id::new("cineed")).open(&mut open).default_size(dsz).max_size(msz).constrain(true).show(ctx, |ui| {
+    egui::Window::new(crate::i18n::trf("Cinématique — {0}", &[format!("{}", c.s("name"))])).id(egui::Id::new("cineed")).open(&mut open).default_size(dsz).max_size(msz).constrain(true).show(ctx, |ui| {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Nom").color(C::MUTED()));
+            ui.label(RichText::new(crate::i18n::tr("Nom")).color(C::MUTED()));
             let mut n = e.s("name").to_string();
             if ui.add(egui::TextEdit::singleline(&mut n).desired_width(180.0)).changed() {
                 e["name"] = Json::String(n);
                 ch = true;
             }
-            if ui.add(theme::btn_accent("▶ Tester")).on_hover_text("Lance le niveau affiché et joue la cinématique").clicked() {
+            if ui.add(theme::btn_accent(crate::i18n::tr("▶ Tester"))).on_hover_text(crate::i18n::tr("Lance le niveau affiché et joue la cinématique")).clicked() {
                 test = true;
             }
-            if ui.add(theme::btn_small("Supprimer")).clicked() {
+            if ui.add(theme::btn_small(crate::i18n::tr("Supprimer"))).clicked() {
                 delete = true;
             }
         });
         ui.horizontal_wrapped(|ui| {
-            for (key, lab) in [("bars", "Bandes noires"), ("lock", "Bloquer les contrôles"), ("freeze", "Figer le jeu"), ("skip", "Échap pour passer")] {
+            for (key, lab) in [("bars", crate::i18n::tr("Bandes noires")), ("lock", crate::i18n::tr("Bloquer les contrôles")), ("freeze", crate::i18n::tr("Figer le jeu")), ("skip", crate::i18n::tr("Échap pour passer"))] {
                 let mut b = e.get(key) != Some(&Json::Bool(false));
                 if ui.checkbox(&mut b, lab).changed() {
                     e[key] = Json::Bool(b);
@@ -199,13 +199,13 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
                                 act = Some((si, -1));
                             }
                             let mut w = together;
-                            if si > 0 && ui.checkbox(&mut w, "en même temps").on_hover_text("Se déroule en même temps que l’étape précédente").changed() {
+                            if si > 0 && ui.checkbox(&mut w, crate::i18n::tr("en même temps")).on_hover_text(crate::i18n::tr("Se déroule en même temps que l’étape précédente")).changed() {
                                 e["steps"][si]["w"] = Json::Bool(w);
                                 ch = true;
                             }
                         });
                     });
-                    egui::CollapsingHeader::new("Réglages").id_salt(("cs", si)).show(ui, |ui| {
+                    egui::CollapsingHeader::new(crate::i18n::tr("Réglages")).id_salt(("cs", si)).show(ui, |ui| {
                         egui::Grid::new(("csg", si)).num_columns(2).spacing([8.0, 4.0]).show(ui, |ui| {
                             for f in d.map(|x| x.3.clone()).unwrap_or_default() {
                                 ui.label(RichText::new(f.1).color(C::MUTED()));
@@ -230,7 +230,7 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
             }
             ch = true;
         }
-        ui.menu_button("+ Ajouter une étape", |ui| {
+        ui.menu_button(crate::i18n::tr("+ Ajouter une étape"), |ui| {
             for d in &defs {
                 if ui.button(format!("{}  {}", d.2, d.1)).clicked() {
                     if !e.get("steps").map(|x| x.is_array()).unwrap_or(false) {
@@ -242,7 +242,7 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
                 }
             }
         });
-        ui.label(RichText::new("Jouez-la depuis les événements avec l’action Système « Jouer une cinématique ».").size(11.0).color(C::DIM()));
+        ui.label(RichText::new(crate::i18n::tr("Jouez-la depuis les événements avec l’action Système « Jouer une cinématique ».")).size(11.0).color(C::DIM()));
     });
     if ch {
         app.snapshot();
@@ -254,7 +254,7 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
         app.proj["cines"].as_array_mut().unwrap().remove(k);
         app.changed();
         app.cine_ed = None;
-        app.toast("Cinématique supprimée (Ctrl+Z pour annuler).", false, now);
+        app.toast(crate::i18n::tr("Cinématique supprimée (Ctrl+Z pour annuler)."), false, now);
         return;
     }
     if test {
@@ -276,7 +276,7 @@ fn field(app: &App, ui: &mut egui::Ui, t: &str, v: &mut Json, step: &Json, salt:
         x => pf_runtime::rt::jstr(x),
     };
     let mut combo = |ui: &mut egui::Ui, v: &mut Json, items: Vec<(String, String)>| {
-        let lab = items.iter().find(|x| x.0 == cur).map(|x| x.1.clone()).unwrap_or_else(|| if cur.is_empty() { "(choisir)".into() } else { cur.clone() });
+        let lab = items.iter().find(|x| x.0 == cur).map(|x| x.1.clone()).unwrap_or_else(|| if cur.is_empty() { crate::i18n::tr("(choisir)").into() } else { cur.clone() });
         egui::ComboBox::from_id_salt(salt).selected_text(lab).show_ui(ui, |ui| {
             for (k, n) in items {
                 if ui.selectable_label(k == cur, n).clicked() {
@@ -315,11 +315,11 @@ fn field(app: &App, ui: &mut egui::Ui, t: &str, v: &mut Json, step: &Json, salt:
                 ch = true;
             }
         }
-        "pos" => combo(ui, v, vec![("bottom".into(), "En bas".into()), ("top".into(), "En haut".into())]),
-        "fmode" => combo(ui, v, vec![("out".into(), "Vers le noir".into()), ("in".into(), "Depuis le noir".into())]),
-        "ease" => combo(ui, v, EASES.iter().map(|e| (e.0.to_string(), e.1.to_string())).collect()),
+        "pos" => combo(ui, v, vec![("bottom".into(), crate::i18n::tr("En bas").into()), ("top".into(), crate::i18n::tr("En haut").into())]),
+        "fmode" => combo(ui, v, vec![("out".into(), crate::i18n::tr("Vers le noir").into()), ("in".into(), crate::i18n::tr("Depuis le noir").into())]),
+        "ease" => combo(ui, v, EASES.iter().map(|e| (e.0.to_string(), crate::i18n::tr(e.1).to_string())).collect()),
         "obj" | "objopt" => {
-            let mut items = if t == "objopt" { vec![(String::new(), "(aucun)".to_string())] } else { vec![] };
+            let mut items = if t == "objopt" { vec![(String::new(), crate::i18n::tr("(aucun)").to_string())] } else { vec![] };
             items.extend(app.proj.arr("objects").iter().filter(|o| !["array", "dict", "family"].contains(&o.s("kind"))).map(|o| (o.s("id").to_string(), o.s("name").to_string())));
             combo(ui, v, items);
         }
@@ -328,7 +328,7 @@ fn field(app: &App, ui: &mut egui::Ui, t: &str, v: &mut Json, step: &Json, salt:
             combo(ui, v, items);
         }
         "sound" => {
-            let mut items: Vec<(String, String)> = pf_core::catalog::catalog()["SOUNDS"].as_array().unwrap().iter().map(|s| (s[0].as_str().unwrap().to_string(), s[1].as_str().unwrap().to_string())).collect();
+            let mut items: Vec<(String, String)> = pf_core::catalog::ui_catalog()["SOUNDS"].as_array().unwrap().iter().map(|s| (s[0].as_str().unwrap().to_string(), s[1].as_str().unwrap().to_string())).collect();
             items.extend(app.proj.arr("sounds").iter().map(|s| (format!("file:{}", s.s("id")), format!("♪ {}", s.s("name")))));
             combo(ui, v, items);
         }
@@ -374,10 +374,10 @@ pub fn new_cine(app: &mut App) {
         app.proj["cines"] = json!([]);
     }
     let names: Vec<String> = app.proj.arr("cines").iter().map(|c| c.s("name").to_string()).collect();
-    let mut nm = "Cinematique".to_string();
+    let mut nm = crate::i18n::tr("Cinematique").to_string();
     let mut k = 2;
     while names.contains(&nm) {
-        nm = format!("Cinematique{}", k);
+        nm = crate::i18n::trf("Cinematique{0}", &[format!("{}", k)]);
         k += 1;
     }
     let id = pf_core::uid("ci");
@@ -599,10 +599,10 @@ impl SfxEd {
         let name = s.map(|s| s.s("name").to_string()).unwrap_or_else(|| {
             let names: Vec<String> = app.proj.arr("sounds").iter().map(|x| x.s("name").to_string()).collect();
             let mut k = 1;
-            while names.contains(&format!("Effet{}", k)) {
+            while names.contains(&crate::i18n::trf("Effet{0}", &[format!("{}", k)])) {
                 k += 1;
             }
-            format!("Effet{}", k)
+            crate::i18n::trf("Effet{0}", &[format!("{}", k)])
         });
         SfxEd { sound, p, name, data: Vec::new(), dirty: true }
     }
@@ -621,16 +621,16 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
         ed.data = sfx_synth(&ed.p, 22050);
         ed.dirty = false;
     }
-    egui::Window::new(if ed.sound.is_some() { "Modifier l’effet sonore" } else { "Créer un effet sonore" }).id(egui::Id::new("sfxed")).open(&mut open).default_width(theme::fit(ctx, 640.0, 700.0).0.x).max_size(theme::fit(ctx, 640.0, 700.0).1).vscroll(true).constrain(true).show(ctx, |ui| {
+    egui::Window::new(if ed.sound.is_some() { crate::i18n::tr("Modifier l’effet sonore") } else { crate::i18n::tr("Créer un effet sonore") }).id(egui::Id::new("sfxed")).open(&mut open).default_width(theme::fit(ctx, 640.0, 700.0).0.x).max_size(theme::fit(ctx, 640.0, 700.0).1).vscroll(true).constrain(true).show(ctx, |ui| {
         ui.horizontal_wrapped(|ui| {
             for (k, n) in PRESETS {
-                if ui.add(theme::btn_small(n)).clicked() {
+                if ui.add(theme::btn_small(crate::i18n::tr(n))).clicked() {
                     ed.p = sfx_preset(k);
                     ed.dirty = true;
                     play = true;
                 }
             }
-            if ui.add(theme::btn_small("🔀 Varier")).clicked() {
+            if ui.add(theme::btn_small(crate::i18n::tr("🔀 Varier"))).clicked() {
                 let mut r = Rng(seed());
                 for d in SFXP {
                     if d.0 == "volume" || r.f() < 0.5 {
@@ -663,15 +663,15 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
             p.line_segment([egui::pos2(rect.left() + x as f32, rect.center().y - mx * h), egui::pos2(rect.left() + x as f32, rect.center().y - mn * h + 1.0)], egui::Stroke::new(1.0_f32, C::ACCENT()));
         }
         ui.horizontal(|ui| {
-            if ui.add(theme::btn_accent("▶ Écouter")).clicked() {
+            if ui.add(theme::btn_accent(crate::i18n::tr("▶ Écouter"))).clicked() {
                 play = true;
             }
-            ui.label(RichText::new(format!("Durée {:.2} s", ed.data.len() as f64 / 22050.0)).color(C::MUTED()));
+            ui.label(RichText::new(crate::i18n::trf("Durée {0} s", &[format!("{:.2}", ed.data.len() as f64 / 22050.0)])).color(C::MUTED()));
         });
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Forme d’onde").color(C::MUTED()));
+            ui.label(RichText::new(crate::i18n::tr("Forme d’onde")).color(C::MUTED()));
             for (k, n) in SFXW {
-                if ui.add(theme::tab(ed.p.s("wave") == *k, n)).clicked() {
+                if ui.add(theme::tab(ed.p.s("wave") == *k, crate::i18n::tr(n))).clicked() {
                     ed.p["wave"] = json!(k);
                     ed.dirty = true;
                 }
@@ -680,9 +680,9 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
         egui::Grid::new("sfxp").num_columns(2).spacing([10.0, 4.0]).show(ui, |ui| {
             for d in SFXP {
                 let off = (d.0 == "duty" && ed.p.s("wave") != "square") || (d.0 == "arpT" && ed.p.f("arp", 0.0) == 0.0) || (d.0 == "vibSpeed" && ed.p.f("vibDepth", 0.0) == 0.0);
-                ui.label(RichText::new(d.1).color(if off { C::DIM() } else { C::MUTED() }));
+                ui.label(RichText::new(crate::i18n::tr(d.1)).color(if off { C::DIM() } else { C::MUTED() }));
                 let mut v = ed.p.f(d.0, 0.0);
-                let r = ui.add_enabled(!off, egui::Slider::new(&mut v, d.3..=d.4).step_by(d.5).suffix(format!(" {}", d.2)));
+                let r = ui.add_enabled(!off, egui::Slider::new(&mut v, d.3..=d.4).step_by(d.5).suffix(format!(" {}", crate::i18n::tr(d.2))));
                 if r.changed() {
                     ed.p[d.0] = json!(v);
                     ed.dirty = true;
@@ -695,12 +695,12 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
         });
         ui.separator();
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Nom du son").color(C::MUTED()));
+            ui.label(RichText::new(crate::i18n::tr("Nom du son")).color(C::MUTED()));
             ui.add(egui::TextEdit::singleline(&mut ed.name).desired_width(160.0));
-            if ui.add(theme::btn_accent(if ed.sound.is_some() { "Enregistrer" } else { "Ajouter au projet" })).clicked() {
+            if ui.add(theme::btn_accent(if ed.sound.is_some() { crate::i18n::tr("Enregistrer") } else { crate::i18n::tr("Ajouter au projet") })).clicked() {
                 save = true;
             }
-            if ui.add(theme::btn("Annuler")).clicked() {
+            if ui.add(theme::btn(crate::i18n::tr("Annuler"))).clicked() {
                 close = true;
             }
         });
@@ -716,7 +716,7 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
         let nm = ed.name.trim().to_string();
         let clash = app.proj.arr("sounds").iter().any(|s| s.s("name") == nm && Some(s.s("id").to_string()) != ed.sound);
         if nm.is_empty() || clash {
-            app.toast(if nm.is_empty() { "Nom obligatoire." } else { "Ce nom de son est déjà utilisé." }, true, now);
+            app.toast(if nm.is_empty() { crate::i18n::tr("Nom obligatoire.") } else { crate::i18n::tr("Ce nom de son est déjà utilisé.") }, true, now);
             app.sfx_ed = Some(ed);
             return;
         }
@@ -740,7 +740,7 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
             }
         }
         app.changed();
-        app.toast("Effet sonore enregistré.", false, now);
+        app.toast(crate::i18n::tr("Effet sonore enregistré."), false, now);
         return;
     }
     if open && !close {
@@ -772,11 +772,11 @@ fn tk_text(s: &[[f64; 3]]) -> String {
     s.iter().map(|q| format!("{} {} {}", q[0], pf_core::Val::N(q[1]).str(), pf_core::Val::N(q[2]).str())).collect::<Vec<_>>().join("\n")
 }
 fn tk_desc(q: &[f64; 3]) -> String {
-    let len = if q[0] < 30.0 { "Très court" } else if q[0] < 60.0 { "Court" } else if q[0] < 105.0 { "" } else if q[0] < 165.0 { "Long" } else { "Très long" };
+    let len = if q[0] < 30.0 { crate::i18n::tr("Très court") } else if q[0] < 60.0 { crate::i18n::tr("Court") } else if q[0] < 105.0 { "" } else if q[0] < 165.0 { crate::i18n::tr("Long") } else { crate::i18n::tr("Très long") };
     let ac = q[1].abs();
-    let side = if q[1] < 0.0 { "à gauche" } else { "à droite" };
-    let cur = if ac < 0.5 { "ligne droite".to_string() } else if ac < 3.0 { format!("virage léger {}", side) } else if ac < 5.0 { format!("virage {}", side) } else { format!("virage serré {}", side) };
-    let hl = if q[2] >= 40.0 { " qui monte fort" } else if q[2] >= 10.0 { " qui monte" } else if q[2] <= -40.0 { " qui descend fort" } else if q[2] <= -10.0 { " qui descend" } else { "" };
+    let side = if q[1] < 0.0 { crate::i18n::tr("à gauche") } else { crate::i18n::tr("à droite") };
+    let cur = if ac < 0.5 { crate::i18n::tr("ligne droite").to_string() } else if ac < 3.0 { crate::i18n::trf("virage léger {0}", &[format!("{}", side)]) } else if ac < 5.0 { crate::i18n::trf("virage {0}", &[side.to_string()]) } else { crate::i18n::trf("virage serré {0}", &[format!("{}", side)]) };
+    let hl = if q[2] >= 40.0 { crate::i18n::tr(" qui monte fort") } else if q[2] >= 10.0 { crate::i18n::tr(" qui monte") } else if q[2] <= -40.0 { crate::i18n::tr(" qui descend fort") } else if q[2] <= -10.0 { crate::i18n::tr(" qui descend") } else { "" };
     format!("{}{}{}", if len.is_empty() { String::new() } else { format!("{} : ", len) }, cur, hl)
 }
 
@@ -808,11 +808,11 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
     let mut open = true;
     let mut ch = false;
     let (dsz, msz) = theme::fit(ctx, 900.0, 640.0);
-    egui::Window::new(format!("Éditeur de piste — {}", o.s("name"))).id(egui::Id::new("tked")).open(&mut open).default_size(dsz).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
+    egui::Window::new(crate::i18n::trf("Éditeur de piste — {0}", &[format!("{}", o.s("name"))])).id(egui::Id::new("tked")).open(&mut open).default_size(dsz).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
         ui.horizontal_wrapped(|ui| {
-            ui.label(RichText::new("Modèle :").color(C::MUTED()));
+            ui.label(RichText::new(crate::i18n::tr("Modèle :")).color(C::MUTED()));
             for (n, d, t) in TK_PRESETS {
-                if ui.add(theme::btn_small(n)).on_hover_text(*d).clicked() {
+                if ui.add(theme::btn_small(crate::i18n::tr(n))).on_hover_text(crate::i18n::tr(d)).clicked() {
                     ed.secs = t.to_vec();
                     ch = true;
                 }
@@ -822,7 +822,7 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
             // ---- tronçons
             ui.vertical(|ui| {
                 ui.set_width(420.0);
-                theme::section(ui, "Tronçons (dans l’ordre du circuit)");
+                theme::section(ui, crate::i18n::tr("Tronçons (dans l’ordre du circuit)"));
                 let mut act: Option<(usize, i32)> = None;
                 egui::ScrollArea::vertical().max_height((ui.available_height() - 40.0).clamp(160.0, 470.0)).show(ui, |ui| {
                     for k in 0..ed.secs.len() {
@@ -840,21 +840,21 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                                     if ui.small_button("↑").clicked() {
                                         act = Some((k, -1));
                                     }
-                                    if ui.small_button("copie").on_hover_text("Dupliquer").clicked() {
+                                    if ui.small_button("copie").on_hover_text(crate::i18n::tr("Dupliquer")).clicked() {
                                         act = Some((k, 2));
                                     }
                                 });
                             });
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new("Longueur").size(11.0).color(C::MUTED()));
+                                ui.label(RichText::new(crate::i18n::tr("Longueur")).size(11.0).color(C::MUTED()));
                                 ch |= ui.add(egui::DragValue::new(&mut ed.secs[k][0]).range(5.0..=2000.0).speed(1.0)).changed();
-                                ui.label(RichText::new("Virage").size(11.0).color(C::MUTED()));
-                                ch |= ui.add(egui::Slider::new(&mut ed.secs[k][1], -8.0..=8.0).step_by(0.5).show_value(true)).on_hover_text("négatif = à gauche, positif = à droite").changed();
+                                ui.label(RichText::new(crate::i18n::tr("Virage")).size(11.0).color(C::MUTED()));
+                                ch |= ui.add(egui::Slider::new(&mut ed.secs[k][1], -8.0..=8.0).step_by(0.5).show_value(true)).on_hover_text(crate::i18n::tr("négatif = à gauche, positif = à droite")).changed();
                             });
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new("Relief").size(11.0).color(C::MUTED()));
-                                ch |= ui.add(egui::Slider::new(&mut ed.secs[k][2], -80.0..=80.0).step_by(5.0)).on_hover_text("positif = monte, négatif = descend").changed();
-                                if ui.add(theme::btn_small("Voir")).on_hover_text("Placer la caméra au début de ce tronçon").clicked() {
+                                ui.label(RichText::new(crate::i18n::tr("Relief")).size(11.0).color(C::MUTED()));
+                                ch |= ui.add(egui::Slider::new(&mut ed.secs[k][2], -80.0..=80.0).step_by(5.0)).on_hover_text(crate::i18n::tr("positif = monte, négatif = descend")).changed();
+                                if ui.add(theme::btn_small(crate::i18n::tr("Voir"))).on_hover_text(crate::i18n::tr("Placer la caméra au début de ce tronçon")).clicked() {
                                     let before: f64 = ed.secs[..k].iter().map(|q| q[0]).sum();
                                     ed.pos = before * o.f_or("segLen", 200.0);
                                     ed.ver += 1;
@@ -884,19 +884,19 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                     ch = true;
                 }
                 ui.horizontal(|ui| {
-                    if ui.add(theme::btn_small("+ Ligne droite")).clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("+ Ligne droite"))).clicked() {
                         ed.secs.push([60.0, 0.0, 0.0]);
                         ch = true;
                     }
-                    if ui.add(theme::btn_small("+ Virage à gauche")).clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("+ Virage à gauche"))).clicked() {
                         ed.secs.push([50.0, -3.0, 0.0]);
                         ch = true;
                     }
-                    if ui.add(theme::btn_small("+ Virage à droite")).clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("+ Virage à droite"))).clicked() {
                         ed.secs.push([50.0, 3.0, 0.0]);
                         ch = true;
                     }
-                    if ui.add(theme::btn_small("+ Bosse")).clicked() {
+                    if ui.add(theme::btn_small(crate::i18n::tr("+ Bosse"))).clicked() {
                         ed.secs.push([40.0, 0.0, 30.0]);
                         ch = true;
                     }
@@ -909,9 +909,9 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                 oj["track"] = Json::String(tk_text(&ed.secs));
                 oj["minimap"] = Json::Bool(false);
                 let r = pf_runtime::road::rd_build(&oj);
-                theme::section(ui, "Vue du pilote");
+                theme::section(ui, crate::i18n::tr("Vue du pilote"));
                 ui.horizontal(|ui| {
-                    if ui.add(theme::btn_small(if ed.playing { "❚❚ Pause" } else { "▶ Rouler" })).clicked() {
+                    if ui.add(theme::btn_small(if ed.playing { crate::i18n::tr("❚❚ Pause") } else { crate::i18n::tr("▶ Rouler") })).clicked() {
                         ed.playing = !ed.playing;
                     }
                     let mut p = ed.pos / r.len.max(1.0) * 100.0;
@@ -950,7 +950,7 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                 }
                 ui.image((ed.tex.as_ref().unwrap().1.id(), egui::vec2(w as f32, h as f32)));
                 // vue de dessus
-                theme::section(ui, "Vue de dessus et relief");
+                theme::section(ui, crate::i18n::tr("Vue de dessus et relief"));
                 let (rect, _) = ui.allocate_exact_size(egui::vec2(w as f32, 150.0), egui::Sense::hover());
                 let p = ui.painter_at(rect);
                 p.rect_filled(rect, 6.0, C::BG0());
@@ -981,7 +981,7 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                 p2.add(egui::Shape::line(prof, egui::Stroke::new(2.0_f32, C::OK())));
                 let x = rect2.left() + 6.0 + (k as f32 / ys.len().max(1) as f32) * (rect2.width() - 12.0);
                 p2.line_segment([egui::pos2(x, rect2.top()), egui::pos2(x, rect2.bottom())], egui::Stroke::new(1.0_f32, egui::Color32::from_rgb(0xff, 0x3b, 0x4f)));
-                ui.label(RichText::new(format!("{} tronçons · {} segments · un tour ≈ {:.0} s à fond", ed.secs.len(), r.segs.len(), r.len / (r.l * 60.0))).size(11.0).color(C::DIM()));
+                ui.label(RichText::new(crate::i18n::trf("{0} tronçons · {1} segments · un tour ≈ {2} s à fond", &[format!("{}", ed.secs.len()), format!("{}", r.segs.len()), format!("{:.0}", r.len / (r.l * 60.0))])).size(11.0).color(C::DIM()));
             });
         });
     });
