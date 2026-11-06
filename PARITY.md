@@ -58,7 +58,8 @@ d'objets identiques** à la version HTML.
 | Générateur d'effets sonores (façon sfxr) : préréglages, variation, 13 réglages, forme d'onde, écoute, modification ultérieure | ✅ |
 | Rechercher / remplacer dans tout le projet (Ctrl+F), avec accès direct au résultat | ✅ |
 | Historique visuel des modifications | ⬜ (Annuler / Rétablir disponibles) |
-| Export HTML / PWA (jeu web) | ⬜ |
-| Thème clair, aide intégrée | ⬜ |
+| Export page web (.html) et jeu web installable (PWA .zip : manifeste, icônes, hors connexion), avec le moteur JavaScript d'origine | ✅ |
+| Aide intégrée | ✅ |
+| Thème clair | ⬜ |
 | Copier / coller des événements (Ctrl+C / Ctrl+V, entre feuilles) | ✅ |
 | Glisser-déposer des événements | ⬜ (flèches ↑ ↓) |

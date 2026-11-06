@@ -7,6 +7,7 @@ mod evsheet;
 mod keys;
 mod props;
 mod theme;
+mod export;
 mod find;
 mod more;
 mod tools;
@@ -114,6 +115,8 @@ pub struct App {
     pub ev_clip: Option<Json>,
     pub bps: std::collections::HashSet<String>,
     pub find: Option<find::FindState>,
+    pub export: Option<export::ExportState>,
+    pub help: bool,
 }
 
 impl App {
@@ -149,6 +152,8 @@ impl App {
             ev_clip: None,
             bps: Default::default(),
             find: None,
+            export: None,
+            help: false,
         };
         // `platforge jeu.json` ouvre un projet ; `platforge --play jeu.json` lance directement le jeu
         let play_only = args.iter().any(|a| a == "--play");
@@ -156,6 +161,11 @@ impl App {
             app.open_path(PathBuf::from(p));
         }
         app.fix_current();
+        if let Ok(out) = std::env::var("PF_EXPORT") {
+            let st = export::ExportState::new(&app);
+            let _ = std::fs::write(&out, export::build_html(&app, &st.o, false));
+            std::process::exit(0);
+        }
         if std::env::var("PF_TOOL").is_ok() {
             app.view.tool = tools::Tool::Paint;
         }
@@ -447,6 +457,10 @@ impl eframe::App for App {
             more::sfx_window(self, ctx, now);
             more::track_window(self, ctx);
             find::window(self, ctx);
+            export::window(self, ctx, now);
+            if self.help {
+                help_window(self, ctx);
+            }
         }
         if self.show_templates {
             self.templates_window(ctx);
@@ -529,9 +543,9 @@ impl App {
                         self.save(true, now);
                     }
                     ui.separator();
-                    if ui.button("Exporter le jeu (application autonome)…").clicked() {
+                    if ui.button("Exporter le jeu (web, installable ou application)…").clicked() {
                         ui.close_menu();
-                        self.export_game(now);
+                        self.export = Some(export::ExportState::new(self));
                     }
                 });
                 ui.menu_button(egui::RichText::new("Édition").color(C::TEXT2), |ui| {
@@ -557,6 +571,9 @@ impl App {
                         ui.close_menu();
                     }
                 });
+                if ui.add(egui::Button::new(egui::RichText::new("Aide").color(C::TEXT2)).frame(false)).clicked() {
+                    self.help = !self.help;
+                }
                 ui.add_space(8.0);
                 if ui.add(theme::btn_accent("▶  Tester  (F5)")).on_hover_text("Lance le jeu depuis le niveau de départ").clicked() {
                     self.start_play(None);
@@ -781,4 +798,56 @@ fn main() -> eframe::Result<()> {
         ..Default::default()
     };
     eframe::run_native("PlatForge Studio", opts, Box::new(|cc| Ok(Box::new(App::new(cc)))))
+}
+
+fn help_window(app: &mut App, ctx: &egui::Context) {
+    let mut open = true;
+    let (dsz, msz) = theme::fit(ctx, 620.0, 620.0);
+    egui::Window::new("Aide").open(&mut open).default_size(dsz).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
+        let sec = |ui: &mut egui::Ui, t: &str, lines: &[&str]| {
+            ui.label(egui::RichText::new(t).strong().size(15.0).color(C::ACCENT));
+            for l in lines {
+                ui.label(egui::RichText::new(format!("•  {}", l)).color(C::TEXT2));
+            }
+            ui.add_space(8.0);
+        };
+        sec(ui, "Démarrer", &[
+            "Fichier ▸ Nouveau depuis un modèle : chaque modèle est un jeu complet à modifier.",
+            "▶ Tester (F5) lance le jeu ; Échap revient à l’éditeur. « Ce niveau » démarre sur le niveau affiché.",
+            "Les projets sont des fichiers .json, compatibles avec la version HTML de PlatForge.",
+        ]);
+        sec(ui, "Le niveau", &[
+            "Glissez un objet du panneau de gauche dans le niveau pour en placer une instance.",
+            "Clic : sélectionner · glisser : déplacer · carré orange : redimensionner (Maj = proportions).",
+            "Molette : zoom · clic du milieu, clic droit ou Espace + glisser : se déplacer.",
+            "Flèches : déplacer la sélection de 1 px (Maj : d’une case de grille) · Alt : sans aimantation.",
+            "Ctrl+D : dupliquer · Suppr : supprimer · double-clic : propriétés de l’objet.",
+            "Carte de tuiles sélectionnée : « Peindre les tuiles » (clic droit = effacer).",
+            "Instance avec le comportement Trajectoire : « Trajectoire » pour placer les points.",
+        ]);
+        sec(ui, "Les événements", &[
+            "Un événement = des conditions (à gauche) qui, si elles sont toutes vraies, déclenchent les actions (à droite).",
+            "Les sous-événements ne s’exécutent que si leur parent est vrai ; « Sinon » joue si l’événement précédent ne l’a pas été.",
+            "Les expressions acceptent + - * / ^ %, & (texte), = <> < > <= >=, et / ou / non, a ? b : c,",
+            "les variables (Score), les propriétés (Joueur.X, Joueur.Speed) et des fonctions (random, round, distance…).",
+            "Ctrl+C / Ctrl+V copient et collent des événements, même entre feuilles. « ● Point d’arrêt » met le test en pause.",
+        ]);
+        sec(ui, "Les éditeurs", &[
+            "Sprite : double-clic sur l’objet. B crayon, E gomme, G remplir, I pipette, L ligne, R rectangle,",
+            "O origine, C boîte de collision, P polygone, N points d’image, Ctrl+Z annuler.",
+            "Sons : ✦ crée un effet sonore, + importe un fichier (wav, mp3, ogg).",
+            "Cinématiques : + dans la rubrique Cinématiques ; jouez-les avec l’action « Jouer une cinématique ».",
+            "Route 3D : « Éditeur visuel de la piste » dans ses propriétés.",
+        ]);
+        sec(ui, "Raccourcis", &[
+            "Ctrl+S enregistrer · Ctrl+O ouvrir · Ctrl+Z / Ctrl+Y annuler / rétablir · Ctrl+F rechercher · F5 tester.",
+            "Pendant le jeu : M coupe le son.",
+        ]);
+        sec(ui, "Publier", &[
+            "Fichier ▸ Exporter : page web (.html), jeu web installable (.zip pour itch.io, GitHub Pages…) ou application de bureau.",
+        ]);
+    });
+    if !open {
+        app.help = false;
+    }
 }
