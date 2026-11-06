@@ -44,10 +44,15 @@ jobs:
 
   linux:
     runs-on: ubuntu-latest
-    container: rust:1-bullseye
+    container: ubuntu:22.04
     steps:
+      - name: Outils
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y curl git build-essential pkg-config libasound2-dev libxkbcommon-dev
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - uses: actions/checkout@v4
-      - run: apt-get update && apt-get install -y libasound2-dev libxkbcommon-dev pkg-config
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p pf_editor
       - name: Préparer le fichier
