@@ -28,10 +28,15 @@ pub struct ViewState {
     pub rect: egui::Rect,
     pub g: Option<Gfx>,
     pub fit_frames: u32,
+    pub tool: crate::tools::Tool,
+    pub tile: i64,
+    pub fill: bool,
+    pub tdrag: Option<usize>,
+    pub painting: bool,
 }
 impl Default for ViewState {
     fn default() -> Self {
-        ViewState { cam: (0.0, 0.0), zoom: 1.0, tex: None, dirty: true, fit_pending: true, key: Default::default(), drag: None, grid: true, snap: true, grid_size: 16.0, active_layer: None, hidden: HashSet::new(), locked: HashSet::new(), rect: egui::Rect::NOTHING, g: None, fit_frames: 0 }
+        ViewState { cam: (0.0, 0.0), zoom: 1.0, tex: None, dirty: true, fit_pending: true, key: Default::default(), drag: None, grid: true, snap: true, grid_size: 16.0, active_layer: None, hidden: HashSet::new(), locked: HashSet::new(), rect: egui::Rect::NOTHING, g: None, fit_frames: 0, tool: crate::tools::Tool::Select, tile: 0, fill: false, tdrag: None, painting: false }
     }
 }
 
@@ -185,6 +190,8 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                 app.view.cam = (c.0 - app.view.rect.width() as f64 / 2.0, c.1 - app.view.rect.height() as f64 / 2.0);
             }
             ui.separator();
+            crate::tools::toolbar(app, ui);
+            ui.separator();
             if ui.toggle_value(&mut app.view.grid, "Grille").changed() {
                 app.view.dirty = true;
             }
@@ -259,6 +266,8 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             zoom_at(app, m, if scroll > 0.0 { 1.15 } else { 1.0 / 1.15 });
         }
     }
+    let consumed = crate::tools::interact(app, &resp, ui.ctx());
+    if !consumed {
     let pressed_mid = ui.ctx().input(|i| i.pointer.middle_down() || i.pointer.secondary_down() || (i.key_down(egui::Key::Space) && i.pointer.primary_down()));
     if resp.drag_started() {
         let p = resp.interact_pointer_pos().unwrap_or(rect.center());
@@ -414,6 +423,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
         }
     }
 
+    }
     // ---- rendu (seulement si quelque chose a changé)
     let (pw, ph) = ((rect.width() * ppp).round().max(1.0) as u32, (rect.height() * ppp).round().max(1.0) as u32);
     let key = (app.ver, (app.view.cam.0 * 100.0) as i64, (app.view.cam.1 * 100.0) as i64, (app.view.zoom * 1000.0) as i64, pw, ph, format!("{}{}{:?}", app.cur_layout, app.view.grid, app.view.hidden));
@@ -454,6 +464,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             }
         }
     }
+    crate::tools::overlay(app, &painter);
     // survol
     if let (Some(m), None) = (mouse, &app.view.drag) {
         let (wx, wy) = app.view.to_world(m);
