@@ -1,0 +1,18 @@
+[package]
+name = "pf_editor"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "platforge"
+path = "src/main.rs"
+
+[dependencies]
+pf_core = { path = "../pf_core" }
+pf_runtime = { path = "../pf_runtime" }
+serde_json.workspace = true
+eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "wayland", "x11"] }
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }
+rodio = { version = "0.20", default-features = false, features = ["symphonia-all"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+tiny-skia = "0.11"
