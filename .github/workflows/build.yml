@@ -1,0 +1,25 @@
+name: Construire PlatForge Studio
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            exe: platforge.exe
+          - os: macos-latest
+            exe: platforge
+          - os: ubuntu-latest
+            exe: platforge
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev libgtk-3-dev
+      - run: cargo test -p pf_core -p pf_runtime --release
+      - run: cargo build --release -p pf_editor
+      - uses: actions/upload-artifact@v4
+        with:
+          name: platforge-${{ matrix.os }}
+          path: target/release/${{ matrix.exe }}
