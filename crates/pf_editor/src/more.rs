@@ -125,7 +125,8 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
     let mut test = false;
     let mut delete = false;
     let defs = csteps();
-    egui::Window::new(format!("Cinématique — {}", c.s("name"))).id(egui::Id::new("cineed")).open(&mut open).default_size([620.0, 600.0]).show(ctx, |ui| {
+    let (dsz, msz) = theme::fit(ctx, 620.0, 600.0);
+    egui::Window::new(format!("Cinématique — {}", c.s("name"))).id(egui::Id::new("cineed")).open(&mut open).default_size(dsz).max_size(msz).constrain(true).show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.label(RichText::new("Nom").color(C::MUTED));
             let mut n = e.s("name").to_string();
@@ -152,7 +153,7 @@ pub fn cine_window(app: &mut App, ctx: &egui::Context, now: f64) {
         ui.separator();
         let steps = e.arr("steps").to_vec();
         let mut act: Option<(usize, i32)> = None;
-        egui::ScrollArea::vertical().max_height(440.0).show(ui, |ui| {
+        egui::ScrollArea::vertical().max_height((ui.available_height() - 60.0).max(120.0)).show(ui, |ui| {
             for (si, s) in steps.iter().enumerate() {
                 let d = defs.iter().find(|x| x.0 == s.s("t"));
                 let together = pf_runtime::rt::jtruthy(s.get("w"));
@@ -593,7 +594,7 @@ pub fn sfx_window(app: &mut App, ctx: &egui::Context, now: f64) {
         ed.data = sfx_synth(&ed.p, 22050);
         ed.dirty = false;
     }
-    egui::Window::new(if ed.sound.is_some() { "Modifier l’effet sonore" } else { "Créer un effet sonore" }).id(egui::Id::new("sfxed")).open(&mut open).default_width(640.0).show(ctx, |ui| {
+    egui::Window::new(if ed.sound.is_some() { "Modifier l’effet sonore" } else { "Créer un effet sonore" }).id(egui::Id::new("sfxed")).open(&mut open).default_width(theme::fit(ctx, 640.0, 700.0).0.x).max_size(theme::fit(ctx, 640.0, 700.0).1).vscroll(true).constrain(true).show(ctx, |ui| {
         ui.horizontal_wrapped(|ui| {
             for (k, n) in PRESETS {
                 if ui.add(theme::btn_small(n)).clicked() {
@@ -779,7 +780,8 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
     };
     let mut open = true;
     let mut ch = false;
-    egui::Window::new(format!("Éditeur de piste — {}", o.s("name"))).id(egui::Id::new("tked")).open(&mut open).default_size([900.0, 620.0]).show(ctx, |ui| {
+    let (dsz, msz) = theme::fit(ctx, 900.0, 640.0);
+    egui::Window::new(format!("Éditeur de piste — {}", o.s("name"))).id(egui::Id::new("tked")).open(&mut open).default_size(dsz).max_size(msz).vscroll(true).constrain(true).show(ctx, |ui| {
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new("Modèle :").color(C::MUTED));
             for (n, d, t) in TK_PRESETS {
@@ -789,13 +791,13 @@ pub fn track_window(app: &mut App, ctx: &egui::Context) {
                 }
             }
         });
-        ui.horizontal_top(|ui| {
+        ui.horizontal_wrapped(|ui| {
             // ---- tronçons
             ui.vertical(|ui| {
                 ui.set_width(420.0);
                 theme::section(ui, "Tronçons (dans l’ordre du circuit)");
                 let mut act: Option<(usize, i32)> = None;
-                egui::ScrollArea::vertical().max_height(470.0).show(ui, |ui| {
+                egui::ScrollArea::vertical().max_height((ui.available_height() - 40.0).clamp(160.0, 470.0)).show(ui, |ui| {
                     for k in 0..ed.secs.len() {
                         egui::Frame::new().fill(C::BG2).corner_radius(6.0).inner_margin(6.0).show(ui, |ui| {
                             ui.horizontal(|ui| {

@@ -107,7 +107,7 @@ impl SpriteEd {
             }
         }
         let cb = o.get("cbox").filter(|c| c.is_object()).map(|c| [c.f("x", 0.0), c.f("y", 0.0), c.f("w", w as f64), c.f("h", h as f64)]).unwrap_or([0.0, 0.0, w as f64, h as f64]);
-        let zoom = (360.0 / w.max(h) as f32).floor().clamp(2.0, 32.0);
+        let zoom = (300.0 / w.max(h) as f32).floor().clamp(2.0, 32.0);
         SpriteEd {
             oid: o.s("id").to_string(),
             name: o.s("name").to_string(),
@@ -317,7 +317,8 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
     let mut open = true;
     let mut close = false;
     let mut save = false;
-    egui::Window::new(format!("Éditeur de sprites — {}", ed.name)).id(egui::Id::new("spred")).open(&mut open).default_size([980.0, 640.0]).resizable(true).collapsible(false).show(ctx, |ui| {
+    let (dsz, msz) = theme::fit(ctx, 1000.0, 680.0);
+    egui::Window::new(format!("Éditeur de sprites — {}", ed.name)).id(egui::Id::new("spred")).open(&mut open).default_size(dsz).max_size(msz).min_size([560.0, 360.0]).resizable(true).collapsible(false).constrain(true).show(ctx, |ui| {
         // ---- barre du haut
         ui.horizontal_wrapped(|ui| {
             for (t, n, tip) in [(STool::Pencil, "✏ Crayon", "B"), (STool::Eraser, "⌫ Gomme", "E"), (STool::Fill, "🪣 Remplir", "G"), (STool::Picker, "💧 Pipette", "I"), (STool::Line, "／ Ligne", "L"), (STool::Rect, "▭ Rectangle", "R"), (STool::Origin, "✛ Origine", "O"), (STool::BoxCol, "⬚ Collision", "C")] {
@@ -339,6 +340,20 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
             ui.toggle_value(&mut ed.onion, "Pelure d’oignon");
             ui.label(egui::RichText::new("Zoom").color(C::MUTED));
             ui.add(egui::Slider::new(&mut ed.zoom, 1.0..=48.0).integer());
+            ui.separator();
+            if ui.add(theme::btn_accent("Enregistrer")).on_hover_text("Enregistrer dans le projet").clicked() {
+                save = true;
+            }
+            if ui.add(theme::btn("Enregistrer et fermer")).clicked() {
+                save = true;
+                close = true;
+            }
+            if ui.add(theme::btn("Fermer")).on_hover_text("Fermer sans enregistrer").clicked() {
+                close = true;
+            }
+            if ed.dirty {
+                ui.label(egui::RichText::new("●").color(C::ACCENT)).on_hover_text("Modifications non enregistrées");
+            }
         });
         ui.separator();
         // raccourcis
@@ -360,6 +375,8 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
         }
         ui.horizontal_top(|ui| {
             // ---- gauche : animations et couleurs
+            let left_h = ui.available_height().max(200.0);
+            egui::ScrollArea::vertical().id_salt("spleft").max_height(left_h).auto_shrink([true, false]).show(ui, |ui| {
             ui.vertical(|ui| {
                 ui.set_width(210.0);
                 theme::section(ui, "Animations");
@@ -472,28 +489,13 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 });
                 ui.label(egui::RichText::new(format!("Origine ({:.0}, {:.0}) · boîte {:.0},{:.0} {:.0}×{:.0}", ed.ox, ed.oy, ed.cbox[0], ed.cbox[1], ed.cbox[2], ed.cbox[3])).size(11.0).color(C::DIM));
             });
+            });
             ui.separator();
             // ---- centre : toile
             ui.vertical(|ui| {
                 canvas(ui, ctx, &mut ed);
                 frames_strip(ui, ctx, &mut ed);
             });
-        });
-        ui.separator();
-        ui.horizontal(|ui| {
-            if ui.add(theme::btn_accent("Enregistrer dans le projet")).clicked() {
-                save = true;
-            }
-            if ui.add(theme::btn("Enregistrer et fermer")).clicked() {
-                save = true;
-                close = true;
-            }
-            if ui.add(theme::btn("Fermer sans enregistrer")).clicked() {
-                close = true;
-            }
-            if ed.dirty {
-                ui.label(egui::RichText::new("● modifications non enregistrées").color(C::ACCENT));
-            }
         });
     });
     if save {
@@ -537,8 +539,10 @@ fn redo(ed: &mut SpriteEd) {
 fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
     let z = ed.zoom;
     let size = egui::vec2(ed.w as f32 * z, ed.h as f32 * z);
-    let avail = egui::vec2(ui.available_width().max(200.0), 470.0);
-    egui::ScrollArea::both().id_salt("spcv").max_height(470.0).max_width(avail.x).show(ui, |ui| {
+    // la toile prend la place restante (moins la bande des images en dessous)
+    let ch = (ui.available_height() - 190.0).max(140.0);
+    let avail = egui::vec2(ui.available_width().max(200.0), ch);
+    egui::ScrollArea::both().id_salt("spcv").max_height(ch).max_width(avail.x).show(ui, |ui| {
         let (rect, resp) = ui.allocate_exact_size(size.max(egui::vec2(10.0, 10.0)), egui::Sense::click_and_drag());
         let p = ui.painter_at(rect);
         // damier

@@ -106,3 +106,10 @@ pub fn color32(s: &str) -> Color32 {
     let c = pf_runtime::gfx::parse_color(s);
     Color32::from_rgba_unmultiplied((c.0 * 255.0) as u8, (c.1 * 255.0) as u8, (c.2 * 255.0) as u8, (c.3 * 255.0) as u8)
 }
+
+/// taille par défaut et taille maximale d'une fenêtre, adaptées à l'écran
+pub fn fit(ctx: &egui::Context, w: f32, h: f32) -> (egui::Vec2, egui::Vec2) {
+    let sr = ctx.screen_rect();
+    let mx = egui::vec2((sr.width() - 24.0).max(320.0), (sr.height() - 70.0).max(240.0));
+    (egui::vec2(w.min(mx.x), h.min(mx.y)), mx)
+}

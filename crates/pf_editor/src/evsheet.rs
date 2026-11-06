@@ -815,7 +815,7 @@ fn edit_window(app: &mut App, ctx: &egui::Context) {
     let mut e2 = it.clone();
     let mut ch = false;
     let mut close = false;
-    egui::Window::new(if cond { "Condition" } else { "Action" }).id(egui::Id::new("aceedit")).open(&mut open).collapsible(false).resizable(false).default_width(420.0).show(ctx, |ui| {
+    egui::Window::new(if cond { "Condition" } else { "Action" }).id(egui::Id::new("aceedit")).open(&mut open).collapsible(false).resizable(false).default_width(420.0).max_size(theme::fit(ctx, 420.0, 600.0).1).vscroll(true).constrain(true).show(ctx, |ui| {
         let (on, col) = owner(app, it.s("o"));
         ui.label(RichText::new(on).color(col));
         ui.label(RichText::new(d.s("n")).strong().size(15.0).color(C::TEXT));
@@ -887,7 +887,7 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
     let mut open = true;
     let mut chosen: Option<(String, String)> = None;
     let mut new_prov: Option<Option<String>> = None;
-    egui::Window::new(if cond { "Ajouter une condition" } else { "Ajouter une action" }).id(egui::Id::new("acepick")).open(&mut open).collapsible(false).default_width(520.0).default_height(520.0).show(ctx, |ui| {
+    egui::Window::new(if cond { "Ajouter une condition" } else { "Ajouter une action" }).id(egui::Id::new("acepick")).open(&mut open).collapsible(false).default_width(520.0).default_height(theme::fit(ctx, 520.0, 520.0).0.y).max_size(theme::fit(ctx, 520.0, 520.0).1).constrain(true).show(ctx, |ui| {
         match &prov {
             None => {
                 ui.label(RichText::new("1. Choisissez l’objet concerné").color(C::MUTED));
@@ -907,7 +907,7 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
                     }
                 });
                 ui.separator();
-                egui::ScrollArea::vertical().max_height(380.0).show(ui, |ui| {
+                egui::ScrollArea::vertical().max_height((ui.available_height() - 20.0).clamp(120.0, 380.0)).show(ui, |ui| {
                     ui.horizontal_wrapped(|ui| {
                         for o in app.proj.arr("objects") {
                             if ui.add(theme::btn(&format!("{}  {}", crate::tree::glyph(o.s("kind")), o.s("name")))).clicked() {
@@ -933,7 +933,7 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
                     app.obj(p).map(|o| providers_of(o, app.proj.arr("objects"))).unwrap_or_default()
                 };
                 let f = app.ev.pick_filter.to_lowercase();
-                egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
+                egui::ScrollArea::vertical().max_height((ui.available_height() - 20.0).clamp(120.0, 420.0)).show(ui, |ui| {
                     let mut cats: Vec<(String, Vec<(String, String, String)>)> = Vec::new();
                     for pv in &provs {
                         if let Some(m) = tab.get(pv).and_then(|m| m.as_object()) {

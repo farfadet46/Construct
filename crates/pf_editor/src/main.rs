@@ -572,11 +572,13 @@ impl App {
 
     fn templates_window(&mut self, ctx: &egui::Context) {
         let mut open = true;
-        egui::Window::new("Nouveau projet").open(&mut open).collapsible(false).resizable(false).default_width(760.0).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+        let (dsz, msz) = theme::fit(ctx, 760.0, 640.0);
+        egui::Window::new("Nouveau projet").open(&mut open).collapsible(false).resizable(false).default_width(dsz.x).max_size(msz).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
             ui.label(egui::RichText::new("Choisissez un point de départ : chaque modèle est un jeu complet que vous pouvez modifier.").color(C::MUTED));
             ui.add_space(8.0);
-            egui::ScrollArea::vertical().max_height(520.0).show(ui, |ui| {
-                egui::Grid::new("tpls").num_columns(2).spacing([10.0, 10.0]).show(ui, |ui| {
+            egui::ScrollArea::vertical().max_height((msz.y - 110.0).min(520.0)).show(ui, |ui| {
+                let two = msz.x > 740.0;
+                egui::Grid::new("tpls").num_columns(if two { 2 } else { 1 }).spacing([10.0, 10.0]).show(ui, |ui| {
                     for (k, t) in tpl::LIST.iter().enumerate() {
                         let r = egui::Frame::new().fill(C::BG2).corner_radius(10.0).stroke(egui::Stroke::new(1.0, C::LINE2)).inner_margin(12.0).show(ui, |ui| {
                             ui.vertical(|ui| {
@@ -598,7 +600,7 @@ impl App {
                             }
                             self.show_templates = false;
                         }
-                        if k % 2 == 1 {
+                        if !two || k % 2 == 1 {
                             ui.end_row();
                         }
                     }
