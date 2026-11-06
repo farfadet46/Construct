@@ -16,6 +16,8 @@ pub enum STool {
     Rect,
     Origin,
     BoxCol,
+    Poly,
+    Point,
 }
 
 #[derive(Clone)]
@@ -25,6 +27,43 @@ pub struct AnimEd {
     pub speed: f64,
     pub looping: bool,
     pub frames: Vec<Vec<u8>>,
+    /// polygone de collision et points d'image, une entrée par image
+    pub poly: Vec<Option<Vec<[f64; 2]>>>,
+    pub pts: Vec<Json>,
+}
+
+impl AnimEd {
+    fn new(name: String, f: Vec<u8>) -> AnimEd {
+        AnimEd { src: json!({"id":pf_core::uid("a")}), name, speed: 5.0, looping: true, frames: vec![f], poly: vec![None], pts: vec![json!({})] }
+    }
+    /// garde poly / pts alignés sur les images
+    fn fix(&mut self) {
+        let n = self.frames.len();
+        self.poly.resize(n, None);
+        self.pts.resize(n, json!({}));
+    }
+    fn ins(&mut self, k: usize, f: Vec<u8>, from: Option<usize>) {
+        self.fix();
+        let (p, q) = match from {
+            Some(i) => (self.poly[i].clone(), self.pts[i].clone()),
+            None => (self.poly.first().cloned().flatten(), json!({})),
+        };
+        self.frames.insert(k, f);
+        self.poly.insert(k, p);
+        self.pts.insert(k, q);
+    }
+    fn rem(&mut self, k: usize) {
+        self.fix();
+        self.frames.remove(k);
+        self.poly.remove(k);
+        self.pts.remove(k);
+    }
+    fn swp(&mut self, a: usize, b: usize) {
+        self.fix();
+        self.frames.swap(a, b);
+        self.poly.swap(a, b);
+        self.pts.swap(a, b);
+    }
 }
 
 pub struct SpriteEd {
@@ -58,6 +97,9 @@ pub struct SpriteEd {
     sheet_rows: u32,
     recent: Vec<Color32>,
     pub dirty: bool,
+    pub points: Vec<String>,
+    cur_pt: usize,
+    pdrag: Option<usize>,
 }
 
 const PAL: [u32; 24] = [
@@ -97,14 +139,17 @@ impl SpriteEd {
             speed: a.f("speed", 5.0),
             looping: a.get("loop") != Some(&Json::Bool(false)),
             frames: a.arr("frames").iter().map(|f| decode(f.as_str().unwrap_or(""), w, h)).collect(),
+            poly: a.arr("poly").iter().map(|p| p.as_array().filter(|v| v.len() >= 3).map(|v| v.iter().map(|q| [q[0].as_f64().unwrap_or(0.0), q[1].as_f64().unwrap_or(0.0)]).collect())).collect(),
+            pts: a.arr("pts").iter().map(|m| if m.is_object() { m.clone() } else { json!({}) }).collect(),
         }).collect();
         if anims.is_empty() {
-            anims.push(AnimEd { src: json!({"id":pf_core::uid("a")}), name: "Défaut".into(), speed: 5.0, looping: true, frames: vec![] });
+            anims.push(AnimEd::new("Défaut".into(), vec![0u8; (w * h * 4) as usize]));
         }
         for a in &mut anims {
             if a.frames.is_empty() {
                 a.frames.push(vec![0u8; (w * h * 4) as usize]);
             }
+            a.fix();
         }
         let cb = o.get("cbox").filter(|c| c.is_object()).map(|c| [c.f("x", 0.0), c.f("y", 0.0), c.f("w", w as f64), c.f("h", h as f64)]).unwrap_or([0.0, 0.0, w as f64, h as f64]);
         let zoom = (300.0 / w.max(h) as f32).floor().clamp(2.0, 32.0);
@@ -139,10 +184,16 @@ impl SpriteEd {
             sheet_rows: 1,
             recent: Vec::new(),
             dirty: false,
+            points: o.arr("points").iter().map(|p| p.s("name").to_string()).filter(|n| !n.is_empty()).collect(),
+            cur_pt: 0,
+            pdrag: None,
         }
     }
     fn px(&mut self) -> &mut Vec<u8> {
         &mut self.anims[self.ca].frames[self.cf]
+    }
+    fn push_undo_meta(&mut self) {
+        self.push_undo();
     }
     fn push_undo(&mut self) {
         self.undo.push((self.anims.clone(), self.w, self.h));
@@ -265,6 +316,7 @@ impl SpriteEd {
         }
         if sheet {
             self.anims[self.ca].frames = frames;
+            self.anims[self.ca].fix();
             self.cf = 0;
         } else {
             self.anims[self.ca].frames[self.cf] = frames.remove(0);
@@ -286,6 +338,16 @@ impl SpriteEd {
             j["speed"] = json!(a.speed);
             j["loop"] = Json::Bool(a.looping);
             j["frames"] = Json::Array(a.frames.iter().map(|f| Json::String(encode(f, self.w, self.h))).collect());
+            let n = a.frames.len();
+            if a.poly.iter().take(n).any(|p| p.is_some()) {
+                j["poly"] = Json::Array((0..n).map(|k| match a.poly.get(k).cloned().flatten() {
+                    Some(p) => json!(p.iter().map(|q| json!([q[0], q[1]])).collect::<Vec<_>>()),
+                    None => json!([]),
+                }).collect());
+            } else if let Some(m) = j.as_object_mut() {
+                m.remove("poly");
+            }
+            j["pts"] = Json::Array((0..n).map(|k| a.pts.get(k).cloned().unwrap_or(json!({}))).collect());
             j
         }).collect();
         let old_w = o.f("w", self.w as f64);
@@ -298,6 +360,7 @@ impl SpriteEd {
         o["oy"] = json!(self.oy);
         o["cbox"] = json!({"x":self.cbox[0],"y":self.cbox[1],"w":self.cbox[2],"h":self.cbox[3]});
         o["collision"] = Json::String(self.collision.clone());
+        o["points"] = Json::Array(self.points.iter().map(|n| json!({"name": n})).collect());
         if (self.w as f64 - old_w).abs() > 0.1 {
             o["defW"] = json!((self.w as f64 * k).round());
             o["defH"] = json!((self.h as f64 * k).round());
@@ -321,7 +384,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
     egui::Window::new(format!("Éditeur de sprites — {}", ed.name)).id(egui::Id::new("spred")).open(&mut open).default_size(dsz).max_size(msz).min_size([560.0, 360.0]).resizable(true).collapsible(false).constrain(true).show(ctx, |ui| {
         // ---- barre du haut
         ui.horizontal_wrapped(|ui| {
-            for (t, n, tip) in [(STool::Pencil, "✏ Crayon", "B"), (STool::Eraser, "⌫ Gomme", "E"), (STool::Fill, "🪣 Remplir", "G"), (STool::Picker, "💧 Pipette", "I"), (STool::Line, "／ Ligne", "L"), (STool::Rect, "▭ Rectangle", "R"), (STool::Origin, "✛ Origine", "O"), (STool::BoxCol, "⬚ Collision", "C")] {
+            for (t, n, tip) in [(STool::Pencil, "✏ Crayon", "B"), (STool::Eraser, "⌫ Gomme", "E"), (STool::Fill, "🪣 Remplir", "G"), (STool::Picker, "💧 Pipette", "I"), (STool::Line, "／ Ligne", "L"), (STool::Rect, "▭ Rectangle", "R"), (STool::Origin, "✛ Origine", "O"), (STool::BoxCol, "⬚ Boîte", "C"), (STool::Poly, "⬠ Polygone", "P"), (STool::Point, "◆ Points", "N")] {
                 if ui.add(theme::tab(ed.tool == t, n)).on_hover_text(format!("Raccourci : {}", tip)).clicked() {
                     ed.tool = t;
                 }
@@ -359,7 +422,7 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
         // raccourcis
         if !ctx.wants_keyboard_input() {
             ctx.input(|i| {
-                for (k, t) in [(egui::Key::B, STool::Pencil), (egui::Key::E, STool::Eraser), (egui::Key::G, STool::Fill), (egui::Key::I, STool::Picker), (egui::Key::L, STool::Line), (egui::Key::R, STool::Rect), (egui::Key::O, STool::Origin), (egui::Key::C, STool::BoxCol)] {
+                for (k, t) in [(egui::Key::B, STool::Pencil), (egui::Key::E, STool::Eraser), (egui::Key::G, STool::Fill), (egui::Key::I, STool::Picker), (egui::Key::L, STool::Line), (egui::Key::R, STool::Rect), (egui::Key::O, STool::Origin), (egui::Key::C, STool::BoxCol), (egui::Key::P, STool::Poly), (egui::Key::N, STool::Point)] {
                     if i.key_pressed(k) && !i.modifiers.command {
                         ed.tool = t;
                     }
@@ -402,7 +465,8 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                 if ui.add(theme::btn_small("+ Animation")).clicked() {
                     ed.push_undo();
                     let f = vec![0u8; (ed.w * ed.h * 4) as usize];
-                    ed.anims.push(AnimEd { src: json!({"id":pf_core::uid("a")}), name: format!("Anim{}", ed.anims.len() + 1), speed: 5.0, looping: true, frames: vec![f] });
+                    let n = format!("Anim{}", ed.anims.len() + 1);
+                    ed.anims.push(AnimEd::new(n, f));
                     ed.ca = ed.anims.len() - 1;
                     ed.cf = 0;
                     ed.touch();
@@ -484,6 +548,96 @@ pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {
                         if ui.selectable_label(ed.collision == k, n).clicked() {
                             ed.collision = k.into();
                             ed.dirty = true;
+                        }
+                    }
+                });
+                if ed.collision == "poly" || ed.tool == STool::Poly {
+                    let (ca, cf) = (ed.ca, ed.cf);
+                    ui.horizontal_wrapped(|ui| {
+                        if ui.add(theme::btn_small("Depuis la boîte")).on_hover_text("Crée un polygone à partir de la boîte de collision").clicked() {
+                            ed.push_undo_meta();
+                            let b = ed.cbox;
+                            ed.anims[ca].poly[cf] = Some(vec![[b[0], b[1]], [b[0] + b[2], b[1]], [b[0] + b[2], b[1] + b[3]], [b[0], b[1] + b[3]]]);
+                            ed.collision = "poly".into();
+                        }
+                        if ui.add(theme::btn_small("Copier sur toutes les images")).clicked() {
+                            ed.push_undo_meta();
+                            let p = ed.anims[ca].poly[cf].clone();
+                            for a in ed.anims.iter_mut() {
+                                for q in a.poly.iter_mut() {
+                                    *q = p.clone();
+                                }
+                            }
+                        }
+                        if ui.add(theme::btn_small("Effacer")).clicked() {
+                            ed.push_undo_meta();
+                            ed.anims[ca].poly[cf] = None;
+                        }
+                    });
+                    ui.label(egui::RichText::new("Outil Polygone : clic = ajouter un sommet, glisser = déplacer, clic droit = supprimer").size(11.0).color(C::DIM));
+                }
+                theme::section(ui, "Points d’image");
+                let mut delp = None;
+                for k in 0..ed.points.len() {
+                    ui.horizontal(|ui| {
+                        if ui.selectable_label(k == ed.cur_pt, format!("◆ {}", ed.points[k])).clicked() {
+                            ed.cur_pt = k;
+                            ed.tool = STool::Point;
+                        }
+                        if ui.small_button("✕").clicked() {
+                            delp = Some(k);
+                        }
+                    });
+                }
+                if let Some(k) = delp {
+                    ed.push_undo_meta();
+                    let n = ed.points.remove(k);
+                    for a in ed.anims.iter_mut() {
+                        for m in a.pts.iter_mut() {
+                            if let Some(o) = m.as_object_mut() {
+                                o.remove(&n);
+                            }
+                        }
+                    }
+                    ed.cur_pt = 0;
+                }
+                if let Some(n) = ed.points.get(ed.cur_pt).cloned() {
+                    let mut nn = n.clone();
+                    if ui.add(egui::TextEdit::singleline(&mut nn).desired_width(140.0)).changed() && !nn.is_empty() && !ed.points.contains(&nn) {
+                        let k = ed.cur_pt;
+                        ed.points[k] = nn.clone();
+                        for a in ed.anims.iter_mut() {
+                            for m in a.pts.iter_mut() {
+                                if let Some(v) = m.as_object_mut().and_then(|o| o.remove(&n)) {
+                                    m[&nn] = v;
+                                }
+                            }
+                        }
+                        ed.dirty = true;
+                    }
+                }
+                ui.horizontal(|ui| {
+                    if ui.add(theme::btn_small("+ Point")).on_hover_text("Ex. : canon, main… (utilisé par « Créer à un point d’image »)").clicked() {
+                        let mut k = ed.points.len() + 1;
+                        while ed.points.contains(&format!("Point{}", k)) {
+                            k += 1;
+                        }
+                        ed.points.push(format!("Point{}", k));
+                        ed.cur_pt = ed.points.len() - 1;
+                        ed.tool = STool::Point;
+                        ed.dirty = true;
+                    }
+                    if !ed.points.is_empty() && ui.add(theme::btn_small("Sur toutes les images")).on_hover_text("Recopie la position du point de cette image sur toutes les images de l’animation").clicked() {
+                        ed.push_undo_meta();
+                        let n = ed.points[ed.cur_pt].clone();
+                        let (ca, cf) = (ed.ca, ed.cf);
+                        if let Some(v) = ed.anims[ca].pts[cf].get(&n).cloned() {
+                            for m in ed.anims[ca].pts.iter_mut() {
+                                if !m.is_object() {
+                                    *m = json!({});
+                                }
+                                m[&n] = v.clone();
+                            }
                         }
                     }
                 });
@@ -591,6 +745,107 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
         let o = rect.min + egui::vec2(ed.ox as f32 * z, ed.oy as f32 * z);
         p.line_segment([o - egui::vec2(7.0, 0.0), o + egui::vec2(7.0, 0.0)], egui::Stroke::new(1.5, C::ACCENT));
         p.line_segment([o - egui::vec2(0.0, 7.0), o + egui::vec2(0.0, 7.0)], egui::Stroke::new(1.5, C::ACCENT));
+        // polygone de collision et points d'image
+        let (ca, cf) = (ed.ca, ed.cf);
+        let to_s = |q: [f64; 2]| rect.min + egui::vec2(q[0] as f32 * z, q[1] as f32 * z);
+        if ed.collision == "poly" || ed.tool == STool::Poly {
+            if let Some(pl) = ed.anims[ca].poly.get(cf).cloned().flatten().or_else(|| ed.anims[ca].poly.first().cloned().flatten()) {
+                let pts: Vec<egui::Pos2> = pl.iter().map(|q| to_s(*q)).collect();
+                let mut cl = pts.clone();
+                if let Some(f) = pts.first() {
+                    cl.push(*f);
+                }
+                p.add(egui::Shape::line(cl, egui::Stroke::new(2.0, Color32::from_rgb(0x3d, 0xdc, 0x97))));
+                if ed.tool == STool::Poly {
+                    for q in &pts {
+                        p.circle(*q, 4.5, Color32::from_rgb(0x3d, 0xdc, 0x97), egui::Stroke::new(1.0, Color32::BLACK));
+                    }
+                }
+            }
+        }
+        for (k, n) in ed.points.iter().enumerate() {
+            let loc = ed.anims[ca].pts.get(cf).and_then(|m| m.get(n)).or_else(|| ed.anims[ca].pts.first().and_then(|m| m.get(n))).map(|v| [v[0].as_f64().unwrap_or(0.0), v[1].as_f64().unwrap_or(0.0)]);
+            if let Some(q) = loc {
+                let c = to_s(q);
+                let col = if k == ed.cur_pt && ed.tool == STool::Point { C::ACCENT } else { Color32::from_rgb(0x4d, 0xa3, 0xff) };
+                p.add(egui::Shape::convex_polygon(vec![c + egui::vec2(0.0, -6.0), c + egui::vec2(6.0, 0.0), c + egui::vec2(0.0, 6.0), c + egui::vec2(-6.0, 0.0)], col, egui::Stroke::new(1.0, Color32::BLACK)));
+                p.text(c + egui::vec2(8.0, -8.0), egui::Align2::LEFT_BOTTOM, n, egui::FontId::proportional(11.0), Color32::WHITE);
+            }
+        }
+        if ed.tool == STool::Poly || ed.tool == STool::Point {
+            if let Some(pos) = resp.interact_pointer_pos().or(resp.hover_pos()) {
+                let g = [(((pos.x - rect.left()) / z).round() as f64).clamp(0.0, ed.w as f64), (((pos.y - rect.top()) / z).round() as f64).clamp(0.0, ed.h as f64)];
+                if ed.tool == STool::Point {
+                    if let Some(n) = ed.points.get(ed.cur_pt).cloned() {
+                        if resp.clicked() || resp.dragged() {
+                            if resp.drag_started() || resp.clicked() {
+                                ed.push_undo_meta();
+                            }
+                            if !ed.anims[ca].pts[cf].is_object() {
+                                ed.anims[ca].pts[cf] = json!({});
+                            }
+                            ed.anims[ca].pts[cf][&n] = json!([g[0], g[1]]);
+                        }
+                    }
+                } else {
+                    let pl = ed.anims[ca].poly[cf].clone().unwrap_or_default();
+                    let near = pl.iter().position(|q| (to_s(*q) - pos).length() < 8.0);
+                    if resp.drag_started() {
+                        if let Some(k) = near {
+                            ed.push_undo_meta();
+                            ed.pdrag = Some(k);
+                        }
+                    }
+                    if resp.dragged() {
+                        if let Some(k) = ed.pdrag {
+                            if let Some(v) = ed.anims[ca].poly[cf].as_mut() {
+                                if k < v.len() {
+                                    v[k] = g;
+                                }
+                            }
+                        }
+                    }
+                    if resp.drag_stopped() {
+                        ed.pdrag = None;
+                    }
+                    if resp.clicked() && near.is_none() {
+                        ed.push_undo_meta();
+                        let mut v = pl.clone();
+                        // insère le sommet sur l'arête la plus proche
+                        let mut at = v.len();
+                        if v.len() >= 3 {
+                            let mut bd = f64::INFINITY;
+                            for i in 0..v.len() {
+                                let (a, b) = (v[i], v[(i + 1) % v.len()]);
+                                let (ex, ey) = (b[0] - a[0], b[1] - a[1]);
+                                let l2 = (ex * ex + ey * ey).max(1e-9);
+                                let t = (((g[0] - a[0]) * ex + (g[1] - a[1]) * ey) / l2).clamp(0.0, 1.0);
+                                let d = (a[0] + ex * t - g[0]).hypot(a[1] + ey * t - g[1]);
+                                if d < bd {
+                                    bd = d;
+                                    at = i + 1;
+                                }
+                            }
+                        }
+                        v.insert(at, g);
+                        ed.anims[ca].poly[cf] = Some(v);
+                        ed.collision = "poly".into();
+                    }
+                    if resp.secondary_clicked() {
+                        if let Some(k) = near {
+                            ed.push_undo_meta();
+                            if let Some(v) = ed.anims[ca].poly[cf].as_mut() {
+                                v.remove(k);
+                                if v.is_empty() {
+                                    ed.anims[ca].poly[cf] = None;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return;
+        }
         // interactions
         let cell = |pos: egui::Pos2| (((pos.x - rect.left()) / z).floor() as i32, ((pos.y - rect.top()) / z).floor() as i32);
         let (prim, sec) = ctx.input(|i| (i.pointer.primary_down(), i.pointer.secondary_down()));
@@ -667,6 +922,7 @@ fn canvas(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
                         ed.dirty = true;
                     }
                 }
+                STool::Poly | STool::Point => {}
                 STool::BoxCol => {
                     let gx = (((pos.x - rect.left()) / z).round() as i32).clamp(0, ed.w as i32);
                     let gy = (((pos.y - rect.top()) / z).round() as i32).clamp(0, ed.h as i32);
@@ -730,7 +986,8 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
         if ui.add(theme::btn_small("+ Image vide")).clicked() {
             ed.push_undo();
             let ca = ed.ca;
-            ed.anims[ca].frames.insert(ed.cf + 1, vec![0u8; (w * h * 4) as usize]);
+            let k = ed.cf + 1;
+            ed.anims[ca].ins(k, vec![0u8; (w * h * 4) as usize], None);
             ed.cf += 1;
             ed.touch();
         }
@@ -738,28 +995,32 @@ fn frames_strip(ui: &mut egui::Ui, ctx: &egui::Context, ed: &mut SpriteEd) {
             ed.push_undo();
             let ca = ed.ca;
             let f = ed.anims[ca].frames[ed.cf].clone();
-            ed.anims[ca].frames.insert(ed.cf + 1, f);
+            let k = ed.cf;
+            ed.anims[ca].ins(k + 1, f, Some(k));
             ed.cf += 1;
             ed.touch();
         }
         if ui.add_enabled(ed.cf > 0, theme::btn_small("◀ Déplacer")).clicked() {
             ed.push_undo();
             let ca = ed.ca;
-            ed.anims[ca].frames.swap(ed.cf, ed.cf - 1);
+            let k = ed.cf;
+            ed.anims[ca].swp(k, k - 1);
             ed.cf -= 1;
             ed.touch();
         }
         if ui.add_enabled(ed.cf + 1 < n, theme::btn_small("Déplacer ▶")).clicked() {
             ed.push_undo();
             let ca = ed.ca;
-            ed.anims[ca].frames.swap(ed.cf, ed.cf + 1);
+            let k = ed.cf;
+            ed.anims[ca].swp(k, k + 1);
             ed.cf += 1;
             ed.touch();
         }
         if ui.add_enabled(n > 1, theme::btn_small("Supprimer")).clicked() {
             ed.push_undo();
             let ca = ed.ca;
-            ed.anims[ca].frames.remove(ed.cf);
+            let k = ed.cf;
+            ed.anims[ca].rem(k);
             ed.cf = ed.cf.min(ed.anims[ca].frames.len() - 1);
             ed.touch();
         }

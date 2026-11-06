@@ -227,6 +227,15 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
         ui.label("Aucune feuille d’événements.");
         return;
     }
+    if !ui.ctx().wants_keyboard_input() {
+        let (c, v) = ui.ctx().input(|i| (i.modifiers.command && i.key_pressed(egui::Key::C), i.modifiers.command && i.key_pressed(egui::Key::V)));
+        if c && app.ev.sel.is_some() {
+            copy_sel(app, ui.ctx());
+        }
+        if v && app.ev_clip.is_some() {
+            paste(app);
+        }
+    }
     // ---- barre d'outils
     egui::Frame::new().fill(C::BG1).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
         ui.horizontal_wrapped(|ui| {
@@ -299,6 +308,20 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                         list.insert(p[p.len() - 1] + 1, c);
                     }
                     app.changed();
+                }
+            }
+            if ui.add_enabled(has, theme::btn_small("Copier")).on_hover_text("Ctrl+C").clicked() {
+                copy_sel(app, ui.ctx());
+            }
+            if ui.add_enabled(app.ev_clip.is_some(), theme::btn_small("Coller")).on_hover_text("Ctrl+V — après l’événement sélectionné").clicked() {
+                paste(app);
+            }
+            let bp_on = sel.as_ref().and_then(|p| ev_id(app, p)).map(|id| app.bps.contains(&id)).unwrap_or(false);
+            if ui.add_enabled(has, theme::btn_small(if bp_on { "● Retirer le point d’arrêt" } else { "● Point d’arrêt" })).on_hover_text("Le test se met en pause quand cet événement s’exécute").clicked() {
+                if let Some(id) = sel.as_ref().and_then(|p| ev_id(app, p)) {
+                    if !app.bps.remove(&id) {
+                        app.bps.insert(id);
+                    }
                 }
             }
             if ui.add_enabled(has, theme::btn_small("Supprimer")).clicked() {
@@ -493,6 +516,9 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                     let is_fn = kind == "function";
                     let r = row_frame(sel, off, C::BG2).show(ui, |ui| {
                         ui.set_width(ui.available_width());
+                        if app.bps.contains(&id) {
+                            ui.label(RichText::new("● point d’arrêt").size(11.0).color(C::DANGER));
+                        }
                         if is_fn {
                             ui.horizontal(|ui| {
                                 ui.label(RichText::new("ƒ Fonction").strong().color(C::ACCENT));
@@ -1018,4 +1044,55 @@ fn pick_window(app: &mut App, ctx: &egui::Context) {
     if !open {
         app.ev.pick = None;
     }
+}
+
+fn ev_id(app: &App, path: &[usize]) -> Option<String> {
+    let s = app.proj.arr("sheets").iter().find(|s| s.s("id") == app.cur_sheet)?;
+    let mut l = s.arr("events");
+    let mut e: Option<&Json> = None;
+    for (n, &k) in path.iter().enumerate() {
+        e = l.get(k);
+        if n + 1 < path.len() {
+            l = e?.arr("subs");
+        }
+    }
+    e.map(|e| e.s("id").to_string())
+}
+
+fn copy_sel(app: &mut App, ctx: &egui::Context) {
+    let p = match app.ev.sel.clone() {
+        Some(p) => p,
+        None => return,
+    };
+    let s = app.proj.arr("sheets").iter().find(|s| s.s("id") == app.cur_sheet).cloned();
+    if let Some(mut s) = s {
+        if let Some(e) = ev_at(&mut s, &p) {
+            let e = e.clone();
+            ctx.copy_text(serde_json::to_string_pretty(&e).unwrap_or_default());
+            app.ev_clip = Some(e);
+        }
+    }
+}
+
+fn paste(app: &mut App) {
+    let mut e = match app.ev_clip.clone() {
+        Some(e) => e,
+        None => return,
+    };
+    reid(&mut e);
+    app.snapshot();
+    let sel = app.ev.sel.clone();
+    let sh = sheet_mut(app).unwrap();
+    let (parent, at) = match &sel {
+        Some(p) => (p[..p.len() - 1].to_vec(), Some(p[p.len() - 1] + 1)),
+        None => (vec![], None),
+    };
+    if let Some(list) = events_at(sh, &parent) {
+        let k = at.unwrap_or(list.len()).min(list.len());
+        list.insert(k, e);
+        let mut np = parent;
+        np.push(k);
+        app.ev.sel = Some(np);
+    }
+    app.changed();
 }

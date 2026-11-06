@@ -7,6 +7,7 @@ mod evsheet;
 mod keys;
 mod props;
 mod theme;
+mod find;
 mod more;
 mod tools;
 mod tpl;
@@ -75,6 +76,7 @@ pub struct Play {
     pub ctrl: bool,
     pub focused: bool,
     pub show_dbg: bool,
+    pub gil: Option<gilrs::Gilrs>,
 }
 
 pub struct Toast {
@@ -109,6 +111,9 @@ pub struct App {
     pub cine_ed: Option<String>,
     pub sfx_ed: Option<more::SfxEd>,
     pub track_ed: Option<more::TrackEd>,
+    pub ev_clip: Option<Json>,
+    pub bps: std::collections::HashSet<String>,
+    pub find: Option<find::FindState>,
 }
 
 impl App {
@@ -141,6 +146,9 @@ impl App {
             cine_ed: None,
             sfx_ed: None,
             track_ed: None,
+            ev_clip: None,
+            bps: Default::default(),
+            find: None,
         };
         // `platforge jeu.json` ouvre un projet ; `platforge --play jeu.json` lance directement le jeu
         let play_only = args.iter().any(|a| a == "--play");
@@ -371,8 +379,10 @@ impl App {
     pub fn start_play(&mut self, layout: Option<String>) {
         let host = audio::AudioHost::new(&self.proj);
         let rt = pf_runtime::Runtime::new(self.proj.clone(), pf_runtime::Options { start_layout: layout, splash: false, embedded: false, seed: None, lcg: None }, Box::new(host));
+        let mut rt = rt;
+        rt.bps = self.bps.clone();
         let (w, h) = (rt.w as u32, rt.h as u32);
-        self.play = Some(Play { rt, g: Gfx::new(w, h), tex: None, last: std::time::Instant::now(), shift: false, ctrl: false, focused: true, show_dbg: false });
+        self.play = Some(Play { rt, g: Gfx::new(w, h), tex: None, last: std::time::Instant::now(), shift: false, ctrl: false, focused: true, show_dbg: false, gil: gilrs::Gilrs::new().ok() });
     }
     pub fn stop_play(&mut self) {
         if let Some(mut p) = self.play.take() {
@@ -404,6 +414,9 @@ impl eframe::App for App {
             if f5 {
                 self.start_play(None);
             }
+            if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::F)) {
+                self.find = Some(find::FindState::default());
+            }
             if del {
                 self.delete_selection();
             }
@@ -433,6 +446,7 @@ impl eframe::App for App {
             more::cine_window(self, ctx, now);
             more::sfx_window(self, ctx, now);
             more::track_window(self, ctx);
+            find::window(self, ctx);
         }
         if self.show_templates {
             self.templates_window(ctx);
@@ -491,6 +505,9 @@ impl App {
                         ui.toggle_value(&mut p.show_dbg, "Débogueur");
                         ui.toggle_value(&mut p.rt.show_col, "Collisions");
                         ui.label(egui::RichText::new(format!("Niveau : {}", p.rt.layout_name())).color(C::MUTED));
+                        if let (Some((_, t)), true) = (&p.rt.brk_hit, p.rt.paused) {
+                            ui.label(egui::RichText::new(format!("● Point d’arrêt atteint (image {}) — « Reprendre » pour continuer", t)).color(C::DANGER));
+                        }
                     }
                     return;
                 }
@@ -524,6 +541,10 @@ impl App {
                     }
                     if ui.add_enabled(!self.redo.is_empty(), egui::Button::new("Rétablir  (Ctrl+Y)")).clicked() {
                         self.do_redo();
+                        ui.close_menu();
+                    }
+                    if ui.button("Rechercher / remplacer…  (Ctrl+F)").clicked() {
+                        self.find = Some(find::FindState::default());
                         ui.close_menu();
                     }
                     ui.separator();
@@ -686,6 +707,9 @@ impl App {
         }
         let p = self.play.as_mut().unwrap();
         keys::feed(ctx, p);
+        let mut gil = p.gil.take();
+        keys::pad(&mut gil, p);
+        p.gil = gil;
         let dt = p.last.elapsed().as_secs_f64();
         p.last = std::time::Instant::now();
         p.rt.frame(dt);

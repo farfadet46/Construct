@@ -340,6 +340,8 @@ pub struct Runtime {
     pub cbind: Vec<Vec<String>>,
     pub ctl: CtlState,
     pub phys_down: HashMap<String, bool>,
+    pub pad_prev: HashMap<String, bool>,
+    pub pad_nav: HashMap<String, bool>,
     pub p2v: HashMap<String, Vec<String>>,
     pub v2p: HashMap<String, Vec<String>>,
     pub blocked: HashSet<String>,
@@ -513,6 +515,8 @@ impl Runtime {
             cbind: Vec::new(),
             ctl: CtlState::default(),
             phys_down: HashMap::new(),
+            pad_prev: HashMap::new(),
+            pad_nav: HashMap::new(),
             p2v: HashMap::new(),
             v2p: HashMap::new(),
             blocked: HashSet::new(),
@@ -1451,6 +1455,28 @@ impl Runtime {
         }
         self.keys.remove(code);
         self.kr.insert(code.to_string());
+    }
+    /// manette : état des touches simulées (pollPad de la version HTML)
+    pub fn pad_input(&mut self, st: &[(&str, bool)], nav: &[(&str, bool)]) {
+        for (k, on) in st {
+            let was = *self.pad_prev.get(*k).unwrap_or(&false);
+            if *on && !was {
+                self.keys.insert(k.to_string());
+                self.kp.insert(k.to_string());
+                self.any_press = true;
+            } else if !*on && was {
+                self.keys.remove(*k);
+                self.kr.insert(k.to_string());
+            }
+            self.pad_prev.insert(k.to_string(), *on);
+        }
+        for (k, on) in nav {
+            let was = *self.pad_nav.get(*k).unwrap_or(&false);
+            if *on && !was {
+                self.pkp.insert(k.to_string());
+            }
+            self.pad_nav.insert(k.to_string(), *on);
+        }
     }
     pub fn blur(&mut self) {
         self.keys.clear();

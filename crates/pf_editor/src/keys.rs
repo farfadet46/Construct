@@ -99,3 +99,37 @@ pub fn feed(ctx: &egui::Context, p: &mut Play) {
         }
     }
 }
+
+/// manette (même correspondance que la version HTML)
+pub fn pad(gil: &mut Option<gilrs::Gilrs>, p: &mut Play) {
+    let g = match gil {
+        Some(g) => g,
+        None => return,
+    };
+    while g.next_event().is_some() {}
+    let pad = match g.gamepads().next() {
+        Some((_, pad)) => pad,
+        None => return,
+    };
+    use gilrs::{Axis, Button};
+    let ax = pad.value(Axis::LeftStickX);
+    let ay = -pad.value(Axis::LeftStickY);
+    let b = |x: Button| pad.is_pressed(x);
+    let st = [
+        ("ArrowLeft", ax < -0.4 || b(Button::DPadLeft)),
+        ("ArrowRight", ax > 0.4 || b(Button::DPadRight)),
+        ("ArrowUp", b(Button::South) || b(Button::DPadUp)),
+        ("ArrowDown", b(Button::DPadDown)),
+        ("Space", b(Button::East)),
+        ("Enter", b(Button::Start)),
+    ];
+    let nav = [
+        ("ArrowUp", b(Button::DPadUp) || ay < -0.6),
+        ("ArrowDown", b(Button::DPadDown) || ay > 0.6),
+        ("ArrowLeft", b(Button::DPadLeft) || ax < -0.6),
+        ("ArrowRight", b(Button::DPadRight) || ax > 0.6),
+        ("Enter", b(Button::South) || b(Button::Start)),
+        ("Escape", b(Button::East)),
+    ];
+    p.rt.pad_input(&st, &nav);
+}

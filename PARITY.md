@@ -32,8 +32,9 @@ d'objets identiques** à la version HTML.
 | Mini-carte (radar / niveau entier, points clignotants) | ✅ |
 | Sons intégrés (synthétisés), fichiers importés, musique avec fondus, étiquettes, volume, coupure (M) | ✅ |
 | Son du moteur de voiture (rapports, crissement, hors-piste) | ✅ |
-| Débogueur : pause, image par image, vitesse, collisions, variables modifiables, instances | 🟡 (points d'arrêt non réglables depuis l'éditeur) |
-| Manette de jeu, boutons tactiles | ⬜ |
+| Débogueur : pause, image par image, vitesse, collisions, variables modifiables, instances, points d'arrêt sur les événements | ✅ |
+| Manette de jeu | ✅ |
+| Boutons tactiles | ⬜ (sans objet sur ordinateur) |
 
 ## Éditeur
 
@@ -49,13 +50,15 @@ d'objets identiques** à la version HTML.
 | Exporter le jeu : application autonome (copie de l'exécutable + jeu) | ✅ |
 | Import d'images (sprites, mosaïques, planches découpées) et de sons | ✅ |
 | Éditeur de sprites : crayon, gomme, remplissage, pipette, ligne, rectangle, taille du pinceau, palette, annuler, animations (ajout, nom, vitesse, boucle), images (ajout, duplication, ordre, miroir), pelure d'oignon, aperçu animé, taille de l'image, origine, boîte de collision, import d'image / de planche | ✅ |
-| Éditeur de sprites : tracé du polygone de collision, points d'image | ⬜ (conservés s'ils existent déjà) |
+| Éditeur de sprites : polygone de collision (par image, depuis la boîte, copie sur toutes les images), points d'image (ajout, renommage, placement, recopie) | ✅ |
 | Peinture des cartes de tuiles : palette, peindre / effacer, remplissage de zone, taille de la carte, type de collision de chaque tuile | ✅ |
 | Éditeur de trajectoires : ajouter, déplacer (aimanté), supprimer les points, aperçu du parcours | ✅ |
 | Éditeur visuel de piste (Route 3D) : modèles, tronçons (longueur, virage, relief), vue du pilote animée (« Rouler »), vue de dessus, profil du relief | ✅ |
 | Éditeur de cinématiques : 13 types d'étapes, étapes simultanées, ordre, options (bandes, blocage, gel, Échap), test direct | ✅ |
 | Générateur d'effets sonores (façon sfxr) : préréglages, variation, 13 réglages, forme d'onde, écoute, modification ultérieure | ✅ |
-| Rechercher / remplacer, historique visuel | ⬜ |
+| Rechercher / remplacer dans tout le projet (Ctrl+F), avec accès direct au résultat | ✅ |
+| Historique visuel des modifications | ⬜ (Annuler / Rétablir disponibles) |
 | Export HTML / PWA (jeu web) | ⬜ |
 | Thème clair, aide intégrée | ⬜ |
-| Glisser-déposer des événements, copier / coller entre feuilles | ⬜ |
+| Copier / coller des événements (Ctrl+C / Ctrl+V, entre feuilles) | ✅ |
+| Glisser-déposer des événements | ⬜ (flèches ↑ ↓) |
