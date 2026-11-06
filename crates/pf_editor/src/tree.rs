@@ -310,8 +310,11 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                 if resp.clicked() {
                     app.sel = Sel::Obj(id.clone());
                 }
+                if resp.double_clicked() && o.s("kind") == "sprite" {
+                    app.sprite = Some(crate::sprite::SpriteEd::open(&o));
+                }
                 let n_inst = app.layout().map(|l| l.arr("instances").iter().filter(|i| i.s("obj") == id).count()).unwrap_or(0);
-                let resp = resp.on_hover_text(format!("{} — {} instance(s) dans ce niveau\nGlissez-le dans le niveau pour en placer une.", kind_name(o.s("kind")), n_inst));
+                let resp = resp.on_hover_text(format!("{} — {} instance(s) dans ce niveau\nGlissez-le dans le niveau pour en placer une.{}", kind_name(o.s("kind")), n_inst, if o.s("kind") == "sprite" { "\nDouble-clic : éditeur de sprites." } else { "" }));
                 resp.context_menu(|ui| {
                     if ui.button("Placer au centre de la vue").clicked() {
                         let c = app.view.center_world();
@@ -344,10 +347,28 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
                     }
                 });
             }
+            // ---- cinématiques
+            ui.horizontal(|ui| {
+                theme::section(ui, "Cinématiques");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.add(theme::btn_small("+")).on_hover_text("Nouvelle cinématique").clicked() {
+                        crate::more::new_cine(app);
+                    }
+                });
+            });
+            for c in app.proj.arr("cines").to_vec() {
+                let on = app.cine_ed.as_deref() == Some(c.s("id"));
+                if ui.add(egui::SelectableLabel::new(on, format!("🎬  {}", c.s("name")))).clicked() {
+                    app.cine_ed = Some(c.s("id").to_string());
+                }
+            }
             // ---- sons
             ui.horizontal(|ui| {
-                theme::section(ui, "Sons importés");
+                theme::section(ui, "Sons");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.add(theme::btn_small("✦")).on_hover_text("Créer un effet sonore (générateur)").clicked() {
+                        app.sfx_ed = Some(crate::more::SfxEd::new(app, None));
+                    }
                     if ui.add(theme::btn_small("+")).on_hover_text("Importer un fichier audio (wav, mp3, ogg)").clicked() {
                         if let Some(p) = rfd::FileDialog::new().add_filter("Audio", &["wav", "mp3", "ogg", "flac", "m4a"]).pick_file() {
                             if let Ok(b) = std::fs::read(&p) {

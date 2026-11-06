@@ -7,7 +7,10 @@ mod evsheet;
 mod keys;
 mod props;
 mod theme;
+mod more;
+mod tools;
 mod tpl;
+mod sprite;
 mod tree;
 mod util;
 mod view;
@@ -101,6 +104,11 @@ pub struct App {
     pub toasts: Vec<Toast>,
     pub tree: tree::TreeState,
     pub confirm_new: Option<String>,
+    pub sprite: Option<sprite::SpriteEd>,
+    pub preview: Option<more::Preview>,
+    pub cine_ed: Option<String>,
+    pub sfx_ed: Option<more::SfxEd>,
+    pub track_ed: Option<more::TrackEd>,
 }
 
 impl App {
@@ -128,6 +136,11 @@ impl App {
             toasts: Vec::new(),
             tree: tree::TreeState::default(),
             confirm_new: None,
+            sprite: None,
+            preview: None,
+            cine_ed: None,
+            sfx_ed: None,
+            track_ed: None,
         };
         // `platforge jeu.json` ouvre un projet ; `platforge --play jeu.json` lance directement le jeu
         let play_only = args.iter().any(|a| a == "--play");
@@ -135,8 +148,38 @@ impl App {
             app.open_path(PathBuf::from(p));
         }
         app.fix_current();
+        if std::env::var("PF_TOOL").is_ok() {
+            app.view.tool = tools::Tool::Paint;
+        }
         if std::env::var("PF_TAB").map(|v| v == "events").unwrap_or(false) {
             app.tab = Tab::Events;
+        }
+        if let Ok(o) = std::env::var("PF_SPRITE") {
+            if let Some(ob) = app.proj.arr("objects").iter().find(|x| x.s("name") == o) {
+                app.sprite = Some(sprite::SpriteEd::open(ob));
+            }
+        }
+        if let Ok(o) = std::env::var("PF_INST") {
+            let lay = app.proj.arr("layouts").iter().find(|l| l.arr("instances").iter().any(|i| app.obj_name(i.s("obj")) == o)).map(|l| l.s("id").to_string());
+            if let Some(l) = lay {
+                app.cur_layout = l;
+            }
+            let id = app.layout().and_then(|l| l.arr("instances").iter().find(|i| app.obj_name(i.s("obj")) == o)).map(|i| i.s("id").to_string());
+            if let Some(id) = id {
+                app.sel = Sel::Inst(id);
+            }
+        }
+        if let Ok(o) = std::env::var("PF_TRACK") {
+            if let Some(ob) = app.proj.arr("objects").iter().find(|x| x.s("name") == o).map(|x| x.s("id").to_string()) {
+                app.ensure_defs();
+                app.track_ed = Some(more::TrackEd::new(&app, &ob));
+            }
+        }
+        if std::env::var("PF_CINE").is_ok() {
+            more::new_cine(&mut app);
+        }
+        if std::env::var("PF_SFX").is_ok() {
+            app.sfx_ed = Some(more::SfxEd::new(&app, None));
         }
         if let Ok(o) = std::env::var("PF_SEL") {
             app.sel = Sel::Obj(app.proj.arr("objects").iter().find(|x| x.s("name") == o).map(|x| x.s("id").to_string()).unwrap_or_default());
@@ -382,6 +425,14 @@ impl eframe::App for App {
                     Tab::Events => evsheet::ui(self, ui, now),
                 }
             });
+        }
+        if self.play.is_none() {
+            if self.sprite.is_some() {
+                sprite::window(self, ctx, now);
+            }
+            more::cine_window(self, ctx, now);
+            more::sfx_window(self, ctx, now);
+            more::track_window(self, ctx);
         }
         if self.show_templates {
             self.templates_window(ctx);

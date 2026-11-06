@@ -47,13 +47,14 @@ d'objets identiques** à la version HTML.
 | Feuille d'événements : affichage, ajout d'événements / sous-événements / commentaires / groupes / fonctions / variables locales / inclusions, sélecteur de conditions et d'actions, édition des paramètres (vérification des expressions), inverser, désactiver, déplacer, dupliquer, supprimer | ✅ |
 | Tester le jeu (tout le jeu ou ce niveau), recommencer, pause | ✅ |
 | Exporter le jeu : application autonome (copie de l'exécutable + jeu) | ✅ |
-| Import d'images (sprites, mosaïques) et de sons | 🟡 (remplacement d'image, pas encore de découpage de planche) |
-| Éditeur de sprites (dessin pixel, animations, polygone de collision, points d'image) | ⬜ |
-| Peinture des cartes de tuiles dans le niveau | ⬜ |
-| Éditeur de trajectoires | ⬜ |
-| Éditeur visuel de piste (Route 3D) | ⬜ (la piste se modifie en texte) |
-| Éditeur de cinématiques | ⬜ (elles sont jouées, pas encore modifiables) |
-| Générateur d'effets sonores | ⬜ |
+| Import d'images (sprites, mosaïques, planches découpées) et de sons | ✅ |
+| Éditeur de sprites : crayon, gomme, remplissage, pipette, ligne, rectangle, taille du pinceau, palette, annuler, animations (ajout, nom, vitesse, boucle), images (ajout, duplication, ordre, miroir), pelure d'oignon, aperçu animé, taille de l'image, origine, boîte de collision, import d'image / de planche | ✅ |
+| Éditeur de sprites : tracé du polygone de collision, points d'image | ⬜ (conservés s'ils existent déjà) |
+| Peinture des cartes de tuiles : palette, peindre / effacer, remplissage de zone, taille de la carte, type de collision de chaque tuile | ✅ |
+| Éditeur de trajectoires : ajouter, déplacer (aimanté), supprimer les points, aperçu du parcours | ✅ |
+| Éditeur visuel de piste (Route 3D) : modèles, tronçons (longueur, virage, relief), vue du pilote animée (« Rouler »), vue de dessus, profil du relief | ✅ |
+| Éditeur de cinématiques : 13 types d'étapes, étapes simultanées, ordre, options (bandes, blocage, gel, Échap), test direct | ✅ |
+| Générateur d'effets sonores (façon sfxr) : préréglages, variation, 13 réglages, forme d'onde, écoute, modification ultérieure | ✅ |
 | Rechercher / remplacer, historique visuel | ⬜ |
 | Export HTML / PWA (jeu web) | ⬜ |
 | Thème clair, aide intégrée | ⬜ |

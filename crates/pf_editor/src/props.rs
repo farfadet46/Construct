@@ -310,6 +310,12 @@ fn inst_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
             ui.end_row();
         }
     });
+    if o.s("kind") == "tilemap" {
+        crate::tools::palette(app, ui, id);
+    }
+    if o.arr("behaviors").iter().any(|b| b.s("type") == "path") {
+        crate::tools::path_panel(app, ui, id);
+    }
     // variables d'instance
     let vars = o.arr("vars").to_vec();
     if !vars.is_empty() {
@@ -454,7 +460,15 @@ fn obj_props(app: &mut App, ui: &mut egui::Ui, id: &str, now: f64) {
             }
         }
     }
+    if kind == "road3d" {
+        if ui.add(theme::btn_accent("🛣  Éditeur visuel de la piste")).clicked() {
+            app.track_ed = Some(crate::more::TrackEd::new(app, id));
+        }
+    }
     if kind == "sprite" {
+        if ui.add(theme::btn_accent("✏  Ouvrir l’éditeur de sprites")).clicked() {
+            app.sprite = Some(crate::sprite::SpriteEd::open(&o));
+        }
         theme::section(ui, "Animations");
         let anims = edited.arr("anims").to_vec();
         for (k, a) in anims.iter().enumerate() {
@@ -808,6 +822,16 @@ fn sound_props(app: &mut App, ui: &mut egui::Ui, id: &str) {
         }
     });
     ui.label(egui::RichText::new(format!("{} Ko", s.s("data").len() * 3 / 4 / 1024)).color(C::DIM));
+    ui.horizontal(|ui| {
+        if ui.add(theme::btn_accent("▶ Écouter")).clicked() {
+            if let Some(b) = pf_core::data_url_bytes(s.s("data")) {
+                crate::more::Preview::play_bytes(app, b);
+            }
+        }
+        if s.get("sfx").map(|x| x.is_object()).unwrap_or(false) && ui.add(theme::btn("✦ Modifier l’effet")).clicked() {
+            app.sfx_ed = Some(crate::more::SfxEd::new(app, Some(id.to_string())));
+        }
+    });
     if ui.add(theme::btn_small("Supprimer le son")).clicked() {
         app.snapshot();
         app.proj["sounds"].as_array_mut().unwrap().remove(k);
