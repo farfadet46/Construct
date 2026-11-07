@@ -80,3 +80,9 @@ d'objets identiques** à la version HTML.
 | Sons : rognage, volume, normalisation, fondus d'entrée / de sortie, écoute du résultat | ✅ |
 | Interface en français ou en anglais (bouton FR / EN, choix mémorisé, langue du système au premier lancement) ; conditions, actions et comportements traduits aussi | ✅ |
 | Correctif : les boutons à l'intérieur d'un événement (« + action », « + condition », cases à cocher…) recevaient mal les clics | ✅ |
+| Sauvegarde automatique (copie de secours toutes les 1, 2, 5 ou 10 min, ou directement dans le fichier) et récupération au redémarrage après un plantage | ✅ |
+| Confirmation « Enregistrer les modifications ? » avant de fermer, d'ouvrir un autre projet ou de partir d'un modèle | ✅ |
+| Projets récents (menu Fichier et fenêtre Nouveau projet) | ✅ |
+| Glisser-déposer sur la fenêtre : projet à ouvrir, images en sprites, sons importés | ✅ |
+| Correctif : certains messages (erreurs d'ouverture, nombre de remplacements) ne s'affichaient pas | ✅ |
+

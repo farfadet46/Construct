@@ -170,6 +170,11 @@ impl SndLib {
 
 fn import_files(app: &mut App) {
     let Some(ps) = rfd::FileDialog::new().add_filter(crate::i18n::tr("Audio"), &["wav", "mp3", "ogg", "flac", "m4a"]).pick_files() else { return };
+    import_paths(app, ps);
+}
+
+/// ajoute des fichiers audio au projet ; renvoie le nombre ajouté
+pub fn import_paths(app: &mut App, ps: Vec<std::path::PathBuf>) -> usize {
     let mut added = 0;
     app.snapshot();
     for p in ps {
@@ -199,6 +204,7 @@ fn import_files(app: &mut App) {
     if added > 0 {
         app.changed();
     }
+    added
 }
 
 pub fn window(app: &mut App, ctx: &egui::Context, now: f64) {

@@ -9,6 +9,7 @@ mod props;
 mod theme;
 mod export;
 mod find;
+mod files;
 mod history;
 mod i18n;
 mod more;
@@ -110,7 +111,10 @@ pub struct App {
     pub show_templates: bool,
     pub toasts: Vec<Toast>,
     pub tree: tree::TreeState,
-    pub confirm_new: Option<String>,
+    pub confirm: Option<files::Pending>,
+    pub autosave: files::AutoSave,
+    /// heure de l'interface (secondes depuis le lancement), mise à jour à chaque image
+    pub clock: f64,
     pub sprite: Option<sprite::SpriteEd>,
     pub part_ed: Option<particles::PartEd>,
     pub snd_lib: Option<sounds::SndLib>,
@@ -166,7 +170,9 @@ impl App {
             show_templates: true,
             toasts: Vec::new(),
             tree: tree::TreeState::default(),
-            confirm_new: None,
+            confirm: None,
+            autosave: files::AutoSave::new(),
+            clock: 0.0,
             sprite: None,
             preview: None,
             cine_ed: None,
@@ -246,6 +252,7 @@ impl App {
     }
 
     pub fn toast(&mut self, t: impl Into<String>, err: bool, now: f64) {
+        let now = now.max(self.clock);
         self.toasts.push(Toast { text: t.into(), until: now + if err { 5.0 } else { 2.6 }, err });
     }
 
@@ -353,6 +360,7 @@ impl App {
     // ---------------------------------------------------------------- fichiers
 
     pub fn load_project(&mut self, p: Json, path: Option<PathBuf>) {
+        self.autosave.clear();
         self.proj = p;
         self.path = path;
         self.dirty = false;
@@ -371,7 +379,10 @@ impl App {
     }
     pub fn open_path(&mut self, path: PathBuf) {
         match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|s| serde_json::from_str::<Json>(&s).map_err(|e| e.to_string())) {
-            Ok(p) if p.get("objects").is_some() => self.load_project(p, Some(path)),
+            Ok(p) if p.get("objects").is_some() => {
+                files::add_recent(&path);
+                self.load_project(p, Some(path));
+            }
             Ok(_) => self.toast(crate::i18n::tr("Ce fichier n’est pas un projet PlatForge."), true, 0.0),
             Err(e) => self.toast(crate::i18n::trf("Impossible d’ouvrir : {0}", &[format!("{}", e)]), true, 0.0),
         }
@@ -395,9 +406,70 @@ impl App {
             Ok(_) => {
                 self.path = Some(path.clone());
                 self.dirty = false;
+                self.autosave.clear();
+                files::add_recent(&path);
                 self.toast(crate::i18n::trf("Enregistré : {0}", &[format!("{}", path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default())]), false, now);
             }
             Err(e) => self.toast(crate::i18n::trf("Échec de l’enregistrement : {0}", &[format!("{}", e)]), true, now),
+        }
+    }
+    /// enregistrement automatique dans le fichier du projet (sans boîte de dialogue)
+    pub fn save_quiet(&mut self, now: f64) {
+        let Some(path) = self.path.clone() else { return };
+        let tmp = path.with_extension("json.tmp");
+        let ok = std::fs::write(&tmp, serde_json::to_string_pretty(&self.proj).unwrap_or_default()).and_then(|_| std::fs::rename(&tmp, &path));
+        match ok {
+            Ok(_) => {
+                self.dirty = false;
+                self.autosave.clear();
+                self.toast(crate::i18n::tr("Enregistré automatiquement."), false, now);
+            }
+            Err(e) => self.toast(crate::i18n::trf("Échec de l’enregistrement : {0}", &[e.to_string()]), true, now),
+        }
+    }
+    /// demande une action ; si le projet a des modifications non enregistrées, on confirme d'abord
+    pub fn request(&mut self, p: files::Pending) {
+        self.show_templates = false;
+        if self.dirty {
+            self.confirm = Some(p);
+        } else {
+            self.run_pending_now(p);
+        }
+    }
+    fn run_pending_now(&mut self, p: files::Pending) {
+        match p {
+            files::Pending::Template(t) => self.load_project(tpl::make(&t), None),
+            files::Pending::Open(Some(path)) => self.open_path(path),
+            files::Pending::Open(None) => self.open_dialog(),
+            files::Pending::Recover(f) => {
+                let env = std::fs::read_to_string(&f).ok().and_then(|s| serde_json::from_str::<Json>(&s).ok());
+                match env.and_then(|v| v.get("project").cloned().map(|p| (p, v.get("path").and_then(|x| x.as_str()).map(PathBuf::from)))) {
+                    Some((p, path)) if p.get("objects").is_some() => {
+                        self.load_project(p, path);
+                        self.dirty = true;
+                        self.ver += 1;
+                        // nouvelle copie de secours tout de suite, puis on jette l'ancienne
+                        let (proj, path, ver) = (self.proj.clone(), self.path.clone(), self.ver);
+                        self.autosave.write_now(&proj, path.as_ref(), ver, 0.0);
+                        self.autosave.forget(&f);
+                        self.toast(crate::i18n::tr("Projet récupéré. Pensez à l’enregistrer (Ctrl+S)."), false, 0.0);
+                    }
+                    _ => {
+                        self.toast(crate::i18n::tr("Cette copie de secours est illisible."), true, 0.0);
+                        self.autosave.forget(&f);
+                    }
+                }
+            }
+            files::Pending::Quit => {}
+        }
+    }
+    pub fn run_pending(&mut self, ctx: &egui::Context, p: files::Pending) {
+        if let files::Pending::Quit = p {
+            self.autosave.quit_ok = true;
+            self.autosave.clear();
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        } else {
+            self.run_pending_now(p);
         }
     }
     /// jeu autonome : copie de l'application + le projet, lancé en mode joueur
@@ -451,7 +523,9 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let _ = frame;
         let now = ctx.input(|i| i.time);
+        self.clock = now;
         self.ensure_defs();
+        files::tick(self, ctx, now);
         let title = crate::i18n::trf("{0}{1} — PlatForge Studio", &[format!("{}", if self.dirty { "• " } else { "" }), format!("{}", self.proj.get("settings").map(|s| s.s("title")).unwrap_or(crate::i18n::tr("Jeu")))]);
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
 
@@ -517,20 +591,10 @@ impl eframe::App for App {
         if self.show_templates {
             self.templates_window(ctx);
         }
-        if let Some(t) = self.confirm_new.clone() {
-            egui::Window::new(crate::i18n::tr("Projet non enregistré")).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
-                ui.label(crate::i18n::tr("Les modifications du projet actuel seront perdues."));
-                ui.horizontal(|ui| {
-                    if ui.button(crate::i18n::tr("Continuer")).clicked() {
-                        self.confirm_new = None;
-                        self.load_project(tpl::make(&t), None);
-                    }
-                    if ui.button(crate::i18n::tr("Annuler")).clicked() {
-                        self.confirm_new = None;
-                    }
-                });
-            });
+        if self.play.is_none() {
+            files::recover_window(self, ctx);
         }
+        files::confirm_window(self, ctx, now);
         self.draw_toasts(ctx, now);
         if self.play.is_some() {
             ctx.request_repaint();
@@ -539,6 +603,8 @@ impl eframe::App for App {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         self.stop_play();
+        // fermeture normale : la copie de secours n'est plus utile
+        self.autosave.shutdown();
     }
 }
 
@@ -584,8 +650,10 @@ impl App {
                     }
                     if ui.button(crate::i18n::tr("Ouvrir…  (Ctrl+O)")).clicked() {
                         ui.close_menu();
-                        self.open_dialog();
+                        self.request(files::Pending::Open(None));
                     }
+                    files::recent_menu(self, ui);
+                    ui.separator();
                     if ui.button(crate::i18n::tr("Enregistrer  (Ctrl+S)")).clicked() {
                         ui.close_menu();
                         self.save(false, now);
@@ -659,7 +727,7 @@ impl App {
             });
         });
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::O)) && self.play.is_none() {
-            self.open_dialog();
+            self.request(files::Pending::Open(None));
         }
     }
 
@@ -701,12 +769,7 @@ impl App {
                             ui.painter().rect_stroke(resp.rect, 10.0, egui::Stroke::new(1.5_f32, C::ACCENT()), egui::StrokeKind::Inside);
                         }
                         if resp.clicked() {
-                            if self.dirty {
-                                self.confirm_new = Some(t.0.to_string());
-                            } else {
-                                self.load_project(tpl::make(t.0), None);
-                            }
-                            self.show_templates = false;
+                            self.request(files::Pending::Template(t.0.to_string()));
                         }
                         if !two || k % 2 == 1 {
                             ui.end_row();
@@ -717,10 +780,10 @@ impl App {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 if ui.button(crate::i18n::tr("Ouvrir un projet existant…")).clicked() {
-                    self.show_templates = false;
-                    self.open_dialog();
+                    self.request(files::Pending::Open(None));
                 }
             });
+            files::recent_list(self, ui);
         });
         if !open {
             self.show_templates = false;
@@ -896,6 +959,8 @@ fn help_window(app: &mut App, ctx: &egui::Context) {
             crate::i18n::tr("▶ Tester (F5) lance le jeu ; Échap revient à l’éditeur. « Ce niveau » démarre sur le niveau affiché."),
             crate::i18n::tr("Les projets sont des fichiers .json, compatibles avec la version HTML de PlatForge."),
             crate::i18n::tr("Le bouton FR / EN en haut à droite change la langue de l’interface ; ☀ / ☾ le thème."),
+            crate::i18n::tr("Fichier ▸ Projets récents ; le travail est copié automatiquement chaque minute et proposé au redémarrage après un plantage."),
+            crate::i18n::tr("Glissez sur la fenêtre un projet (.json) pour l’ouvrir, des images pour en faire des sprites, des sons pour les importer."),
         ]);
         sec(ui, crate::i18n::tr("Le niveau"), &[
             crate::i18n::tr("Glissez un objet du panneau de gauche dans le niveau pour en placer une instance."),
