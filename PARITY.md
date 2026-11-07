@@ -85,4 +85,5 @@ d'objets identiques** à la version HTML.
 | Projets récents (menu Fichier et fenêtre Nouveau projet) | ✅ |
 | Glisser-déposer sur la fenêtre : projet à ouvrir, images en sprites, sons importés | ✅ |
 | Correctif : certains messages (erreurs d'ouverture, nombre de remplacements) ne s'affichaient pas | ✅ |
+| Correctif : les panneaux latéraux ne s'élargissent plus tout seuls (changement de langue, champs pleine largeur) ; seul le bord tiré à la souris change leur largeur | ✅ |
 

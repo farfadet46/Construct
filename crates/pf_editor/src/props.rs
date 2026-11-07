@@ -5,6 +5,18 @@ use crate::{App, Play, Sel};
 use eframe::egui;
 use pf_core::{json, Json, JsonExt};
 
+/// largeur jusqu'au bord visible du panneau : un champ « pleine largeur » ne doit jamais
+/// élargir le panneau (sinon il grandit dès que la colonne des libellés change de largeur)
+fn fill_w(ui: &egui::Ui) -> f32 {
+    (content_right(ui) - ui.cursor().left()).max(40.0)
+}
+
+/// bord droit utile du panneau, mémorisé avant la zone de défilement
+/// (la zone de défilement, elle, s'élargit avec son contenu : on ne peut pas s'y fier)
+fn content_right(ui: &egui::Ui) -> f32 {
+    ui.ctx().data(|d| d.get_temp::<f32>(egui::Id::new("props_right"))).unwrap_or_else(|| ui.clip_rect().right() - 16.0)
+}
+
 pub fn jdisp(v: &Json) -> String {
     match v {
         Json::String(s) => format!("\"{}\"", s),
@@ -107,9 +119,9 @@ fn field(ui: &mut egui::Ui, k: &str, v: &mut Json, label: &str) -> bool {
                     ch |= ui.add(egui::TextEdit::singleline(s).desired_width(80.0)).changed();
                 });
             } else if k == "track" || k == "text" && s.contains('\n') || s.len() > 40 {
-                ch |= ui.add(egui::TextEdit::multiline(s).desired_rows(3).desired_width(f32::INFINITY).font(egui::TextStyle::Monospace)).changed();
+                ch |= ui.add(egui::TextEdit::multiline(s).desired_rows(3).desired_width(fill_w(ui)).font(egui::TextStyle::Monospace)).changed();
             } else {
-                ch |= ui.add(egui::TextEdit::singleline(s).desired_width(f32::INFINITY)).changed();
+                ch |= ui.add(egui::TextEdit::singleline(s).desired_width(fill_w(ui))).changed();
             }
         }
         Json::Null => {
@@ -193,8 +205,12 @@ fn beh_param(ui: &mut egui::Ui, app: &App, def: &Json, v: &mut Json) -> bool {
 }
 
 pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
+    let w0 = crate::util::panel_width(ctx, "props");
     egui::SidePanel::right("props").default_width(300.0).min_width(240.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0_f32, C::LINE()))).show(ctx, |ui| {
-        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+        let right = ui.max_rect().right() - 4.0;
+        ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("props_right"), right));
+        // max_width : le contenu ne peut pas élargir le panneau (il serait coupé, pas agrandi)
+        egui::ScrollArea::vertical().max_width(ui.available_width()).auto_shrink([false, false]).show(ui, |ui| {
             match app.sel.clone() {
                 Sel::Inst(id) => inst_props(app, ui, &id),
                 Sel::Obj(id) => obj_props(app, ui, &id, now),
@@ -206,6 +222,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
             }
         });
     });
+    crate::util::keep_panel_width(ctx, "props", w0, true);
 }
 
 fn header(ui: &mut egui::Ui, icon: &str, title: &str, sub: &str) {
@@ -423,7 +440,7 @@ fn obj_props(app: &mut App, ui: &mut egui::Ui, id: &str, now: f64) {
     if kind == "array" {
         theme::section(ui, crate::i18n::tr("Éléments (JSON)"));
         let mut s = edited.get("items").map(|v| v.to_string()).unwrap_or_else(|| "[]".into());
-        if ui.add(egui::TextEdit::multiline(&mut s).desired_rows(3).font(egui::TextStyle::Monospace).desired_width(f32::INFINITY)).changed() {
+        if ui.add(egui::TextEdit::multiline(&mut s).desired_rows(3).font(egui::TextStyle::Monospace).desired_width(fill_w(ui))).changed() {
             if let Ok(j) = serde_json::from_str::<Json>(&s) {
                 if j.is_array() {
                     edited["items"] = j;
@@ -435,7 +452,7 @@ fn obj_props(app: &mut App, ui: &mut egui::Ui, id: &str, now: f64) {
     if kind == "dict" {
         theme::section(ui, crate::i18n::tr("Entrées (JSON)"));
         let mut s = edited.get("entries").map(|v| v.to_string()).unwrap_or_else(|| "{}".into());
-        if ui.add(egui::TextEdit::multiline(&mut s).desired_rows(3).font(egui::TextStyle::Monospace).desired_width(f32::INFINITY)).changed() {
+        if ui.add(egui::TextEdit::multiline(&mut s).desired_rows(3).font(egui::TextStyle::Monospace).desired_width(fill_w(ui))).changed() {
             if let Ok(j) = serde_json::from_str::<Json>(&s) {
                 if j.is_object() {
                     edited["entries"] = j;
@@ -911,19 +928,25 @@ fn settings_props(app: &mut App, ui: &mut egui::Ui) {
     let mut del = None;
     for (k, c) in ctl.iter().enumerate() {
         ui.horizontal(|ui| {
+            // largeurs relatives : la ligne ne doit jamais dépasser le panneau (sinon il s'élargit)
+            let avail = (content_right(ui) - ui.cursor().left()).max(120.0);
             let mut n = c.s("name").to_string();
-            if ui.add(egui::TextEdit::singleline(&mut n).desired_width(90.0)).changed() {
+            if ui.add(egui::TextEdit::singleline(&mut n).desired_width((avail * 0.36).max(50.0))).changed() {
                 s["controls"][k]["name"] = Json::String(n);
                 ch = true;
             }
-            let mut keys = c.arr("keys").iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(" ");
-            if ui.add(egui::TextEdit::singleline(&mut keys).desired_width(150.0)).on_hover_text(crate::i18n::tr("Codes de touches séparés par des espaces (ArrowLeft KeyA…)")).changed() {
-                s["controls"][k]["keys"] = json!(keys.split_whitespace().collect::<Vec<_>>());
-                ch = true;
-            }
-            if ui.small_button("✕").clicked() {
-                del = Some(k);
-            }
+            // de droite à gauche : d'abord ✕, puis le champ des touches prend la place restante
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.small_button("✕").clicked() {
+                    del = Some(k);
+                }
+                let mut keys = c.arr("keys").iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(" ");
+                let w = (ui.available_width() - 8.0).max(50.0);
+                if ui.add(egui::TextEdit::singleline(&mut keys).desired_width(w)).on_hover_text(crate::i18n::tr("Codes de touches séparés par des espaces (ArrowLeft KeyA…)")).changed() {
+                    s["controls"][k]["keys"] = json!(keys.split_whitespace().collect::<Vec<_>>());
+                    ch = true;
+                }
+            });
         });
     }
     if let Some(k) = del {

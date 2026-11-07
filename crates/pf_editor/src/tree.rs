@@ -179,8 +179,9 @@ pub fn add_instance(app: &mut App, oid: &str, x: f64, y: f64) {
 }
 
 pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
+    let w0 = crate::util::panel_width(ctx, "tree");
     egui::SidePanel::left("tree").default_width(250.0).min_width(200.0).frame(egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(10, 8)).stroke(egui::Stroke::new(1.0_f32, C::LINE()))).show(ctx, |ui| {
-        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+        egui::ScrollArea::vertical().max_width(ui.available_width()).auto_shrink([false, false]).show(ui, |ui| {
             // ---- niveaux
             ui.horizontal(|ui| {
                 theme::section(ui, crate::i18n::tr("Niveaux"));
@@ -440,6 +441,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
             }
         });
     });
+    crate::util::keep_panel_width(ctx, "tree", w0, false);
 }
 
 pub fn count_events(l: &[Json]) -> usize {
