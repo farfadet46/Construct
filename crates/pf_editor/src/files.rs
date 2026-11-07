@@ -359,7 +359,7 @@ pub fn recover_window(app: &mut App, ctx: &egui::Context) {
                         ui.vertical(|ui| {
                             ui.label(egui::RichText::new(if o.title.is_empty() { tr("(sans titre)") } else { &o.title }).strong().color(C::TEXT()));
                             let file = o.path.as_ref().and_then(|p| PathBuf::from(p).file_name().map(|f| f.to_string_lossy().to_string())).unwrap_or_else(|| tr("projet jamais enregistré").to_string());
-                            ui.label(egui::RichText::new(format!("{} · {} · {} Ko", file, ago(o.time), o.size / 1024)).size(11.0).color(C::MUTED()));
+                            ui.label(egui::RichText::new(trf("{0} · {1} · {2} Ko", &[file, ago(o.time), (o.size / 1024).to_string()])).size(11.0).color(C::MUTED()));
                             if o.saved_after {
                                 ui.label(egui::RichText::new(tr("Le fichier du projet a été enregistré plus tard : cette copie est sans doute dépassée.")).size(11.0).color(C::DIM()));
                             }

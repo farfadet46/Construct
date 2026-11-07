@@ -86,4 +86,9 @@ d'objets identiques** à la version HTML.
 | Glisser-déposer sur la fenêtre : projet à ouvrir, images en sprites, sons importés | ✅ |
 | Correctif : certains messages (erreurs d'ouverture, nombre de remplacements) ne s'affichaient pas | ✅ |
 | Correctif : les panneaux latéraux ne s'élargissent plus tout seuls (changement de langue, champs pleine largeur) ; seul le bord tiré à la souris change leur largeur | ✅ |
+| Niveau : sélection multiple (rectangle, Maj+clic, Ctrl+A), déplacement de groupe, flèches, Suppr, Ctrl+D | ✅ |
+| Niveau : aligner (6 façons), répartir à écarts égaux, réglages communs (calque, opacité, visible, miroir, angle) | ✅ |
+| Niveau : copier / coller d'instances (Ctrl+C / Ctrl+V), y compris vers un autre niveau, collées sous la souris | ✅ |
+| Événements : sélection multiple (Ctrl+clic, Maj+clic plage, Ctrl+A), glisser-déposer en groupe, Suppr, Ctrl+D, copier / coller, activer / désactiver | ✅ |
+| Correctif : un glisser dans le niveau part bien du point où l'on a cliqué | ✅ |
 

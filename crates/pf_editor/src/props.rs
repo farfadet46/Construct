@@ -212,6 +212,7 @@ pub fn panel(app: &mut App, ctx: &egui::Context, now: f64) {
         // max_width : le contenu ne peut pas élargir le panneau (il serait coupé, pas agrandi)
         egui::ScrollArea::vertical().max_width(ui.available_width()).auto_shrink([false, false]).show(ui, |ui| {
             match app.sel.clone() {
+                Sel::Inst(_) if app.multi.len() > 1 => crate::multisel::props(app, ui),
                 Sel::Inst(id) => inst_props(app, ui, &id),
                 Sel::Obj(id) => obj_props(app, ui, &id, now),
                 Sel::Layout(_) => layout_props(app, ui),

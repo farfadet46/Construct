@@ -46,8 +46,12 @@ impl Default for ViewState {
     }
 }
 
+#[derive(Clone)]
 pub enum Drag {
-    Move { id: String, sx: f64, sy: f64, mx: f64, my: f64 },
+    /// déplacement : l'instance saisie (aimantée) et le reste du groupe (position de départ)
+    Move { id: String, sx: f64, sy: f64, mx: f64, my: f64, group: Vec<(String, f64, f64)> },
+    /// rectangle de sélection (coordonnées du monde) ; `add` : Maj, ajoute à la sélection
+    Marquee { x0: f64, y0: f64, x1: f64, y1: f64, add: bool },
     Resize { id: String },
     Pan { cx: f64, cy: f64, mx: f32, my: f32 },
 }
@@ -177,6 +181,7 @@ fn render(app: &mut App, pw: u32, ph: u32, ppp: f32) {
 
 pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     let _ = now;
+    crate::multisel::normalize(app);
     // ---- barre d'outils
     egui::Frame::new().fill(C::BG1()).inner_margin(egui::Margin::symmetric(8, 4)).show(ui, |ui| {
         ui.horizontal_wrapped(|ui| {
@@ -276,14 +281,16 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     if !consumed {
     let pressed_mid = ui.ctx().input(|i| i.pointer.middle_down() || i.pointer.secondary_down() || (i.key_down(egui::Key::Space) && i.pointer.primary_down()));
     if resp.drag_started() {
-        let p = resp.interact_pointer_pos().unwrap_or(rect.center());
+        // point où le bouton a été enfoncé (pas celui où le glisser est reconnu, quelques pixels plus loin)
+        let p = ui.ctx().input(|i| i.pointer.press_origin()).or(resp.interact_pointer_pos()).unwrap_or(rect.center());
         if pressed_mid {
             app.view.drag = Some(Drag::Pan { cx: app.view.cam.0, cy: app.view.cam.1, mx: p.x, my: p.y });
         } else {
             let (wx, wy) = app.view.to_world(p);
             // poignée de redimensionnement de la sélection ?
             let mut on_handle = false;
-            if let Sel::Inst(id) = app.sel.clone() {
+            let single = crate::multisel::sel_insts(app).len() <= 1;
+            if let (Sel::Inst(id), true) = (app.sel.clone(), single) {
                 if let Some(b) = app.find_inst(&id).and_then(|i| inst_box(app, i)) {
                     let hp = app.view.to_screen(b.l.max(b.r), b.b);
                     if (hp - p).length() < 9.0 {
@@ -294,15 +301,30 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                 }
             }
             if !on_handle {
+                let add = ui.ctx().input(|i| i.modifiers.shift || i.modifiers.command);
                 match hit(app, wx, wy) {
                     Some(id) => {
                         let i = app.find_inst(&id).cloned().unwrap();
                         app.snapshot();
-                        app.sel = Sel::Inst(id.clone());
-                        app.view.drag = Some(Drag::Move { id, sx: i.f("x", 0.0), sy: i.f("y", 0.0), mx: wx, my: wy });
+                        // instance hors sélection : elle devient la sélection (ou s'y ajoute avec Maj)
+                        let mut cur = crate::multisel::sel_insts(app);
+                        if !cur.contains(&id) {
+                            if add {
+                                cur.push(id.clone());
+                            } else {
+                                cur = vec![id.clone()];
+                            }
+                        } else {
+                            // la saisie devient la principale
+                            cur.retain(|x| x != &id);
+                            cur.push(id.clone());
+                        }
+                        crate::multisel::select(app, cur.clone());
+                        let group: Vec<(String, f64, f64)> = cur.iter().filter(|x| **x != id).filter_map(|x| app.find_inst(x).map(|j| (x.clone(), j.f("x", 0.0), j.f("y", 0.0)))).collect();
+                        app.view.drag = Some(Drag::Move { id, sx: i.f("x", 0.0), sy: i.f("y", 0.0), mx: wx, my: wy, group });
                     }
                     None => {
-                        app.view.drag = Some(Drag::Pan { cx: app.view.cam.0, cy: app.view.cam.1, mx: p.x, my: p.y });
+                        app.view.drag = Some(Drag::Marquee { x0: wx, y0: wy, x1: wx, y1: wy, add });
                     }
                 }
             }
@@ -314,7 +336,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                 Some(Drag::Pan { cx, cy, mx, my }) => {
                     app.view.cam = (cx - (p.x - mx) as f64 / app.view.zoom, cy - (p.y - my) as f64 / app.view.zoom);
                 }
-                Some(Drag::Move { id, sx, sy, mx, my }) => {
+                Some(Drag::Move { id, sx, sy, mx, my, group }) => {
                     let (wx, wy) = app.view.to_world(p);
                     let (mut nx, mut ny) = (sx + wx - mx, sy + wy - my);
                     if app.view.snap && !ui.ctx().input(|i| i.modifiers.alt) {
@@ -322,12 +344,27 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                         nx = (nx / gs).round() * gs;
                         ny = (ny / gs).round() * gs;
                     }
-                    let id = id.clone();
+                    // le groupe suit le même décalage que l'instance saisie
+                    let (dx, dy) = (nx - sx, ny - sy);
+                    let (id, group) = (id.clone(), group.clone());
                     if let Some(i) = app.inst_mut(&id) {
                         i["x"] = json!(nx);
                         i["y"] = json!(ny);
                     }
+                    for (gid, gx, gy) in group {
+                        if let Some(i) = app.inst_mut(&gid) {
+                            i["x"] = json!((gx + dx).round());
+                            i["y"] = json!((gy + dy).round());
+                        }
+                    }
                     app.changed();
+                }
+                Some(Drag::Marquee { .. }) => {
+                    let (wx, wy) = app.view.to_world(p);
+                    if let Some(Drag::Marquee { x1, y1, .. }) = app.view.drag.as_mut() {
+                        *x1 = wx;
+                        *y1 = wy;
+                    }
                 }
                 Some(Drag::Resize { id }) => {
                     let id = id.clone();
@@ -366,15 +403,41 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
         }
     }
     if resp.drag_stopped() {
+        if let Some(Drag::Marquee { x0, y0, x1, y1, add }) = app.view.drag.clone() {
+            let (l, r, t, b) = (x0.min(x1), x0.max(x1), y0.min(y1), y0.max(y1));
+            let mut cur = if add { crate::multisel::sel_insts(app) } else { vec![] };
+            if let Some(lay) = app.layout() {
+                for i in lay.arr("instances") {
+                    let ly = layer_of(lay, i);
+                    if app.view.hidden.contains(&ly) || app.view.locked.contains(&ly) {
+                        continue;
+                    }
+                    if let Some(bx) = inst_box(app, i) {
+                        let (il, ir) = (bx.l.min(bx.r), bx.l.max(bx.r));
+                        // touche le rectangle
+                        if ir >= l && il <= r && bx.b >= t && bx.t <= b {
+                            let id = i.s("id").to_string();
+                            if !cur.contains(&id) {
+                                cur.push(id);
+                            }
+                        }
+                    }
+                }
+            }
+            crate::multisel::select(app, cur);
+        }
         app.view.drag = None;
     }
     if resp.clicked() {
         if let Some(p) = resp.interact_pointer_pos() {
             let (wx, wy) = app.view.to_world(p);
-            app.sel = match hit(app, wx, wy) {
-                Some(id) => Sel::Inst(id),
-                None => Sel::Layout(app.cur_layout.clone()),
-            };
+            let add = ui.ctx().input(|i| i.modifiers.shift || i.modifiers.command);
+            match hit(app, wx, wy) {
+                Some(id) if add => crate::multisel::toggle(app, &id),
+                Some(id) => crate::multisel::select(app, vec![id]),
+                None if add => {}
+                None => crate::multisel::select(app, vec![]),
+            }
         }
     }
     if resp.double_clicked() {
@@ -399,7 +462,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     }
     // flèches : déplacer la sélection
     if resp.hovered() || resp.has_focus() {
-        if let Sel::Inst(id) = app.sel.clone() {
+        if !crate::multisel::sel_insts(app).is_empty() {
             let (dx, dy, big) = ui.ctx().input(|i| {
                 let mut dx = 0.0;
                 let mut dy = 0.0;
@@ -419,12 +482,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             });
             if (dx != 0.0 || dy != 0.0) && !crate::util::typing(ui.ctx()) {
                 let k = if big { app.view.grid_size } else { 1.0 };
-                app.snapshot();
-                if let Some(i) = app.inst_mut(&id) {
-                    i["x"] = json!(i.f("x", 0.0) + dx * k);
-                    i["y"] = json!(i.f("y", 0.0) + dy * k);
-                }
-                app.changed();
+                crate::multisel::move_all(app, dx * k, dy * k);
             }
         }
     }
@@ -457,8 +515,30 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
         let lr = egui::Rect::from_min_max(app.view.to_screen(0.0, 0.0), app.view.to_screen(l.f("w", 0.0), l.f("h", 0.0)));
         painter.rect_stroke(lr, 0.0, egui::Stroke::new(1.0_f32, C::LINE3()), egui::StrokeKind::Outside);
     }
-    // sélection
-    if let Sel::Inst(id) = &app.sel {
+    // sélection multiple : un cadre par instance, plus le cadre du groupe
+    let selected = crate::multisel::sel_insts(app);
+    if selected.len() > 1 {
+        for id in &selected {
+            if let Some(b) = app.find_inst(id).and_then(|i| inst_box(app, i)) {
+                let r = egui::Rect::from_min_max(app.view.to_screen(b.l.min(b.r), b.t), app.view.to_screen(b.l.max(b.r), b.b));
+                painter.rect_stroke(r, 0.0, egui::Stroke::new(1.5_f32, C::ACCENT()), egui::StrokeKind::Outside);
+            }
+        }
+        if let Some(g) = crate::multisel::group_box(app, &selected) {
+            let r = egui::Rect::from_min_max(app.view.to_screen(g.0, g.1), app.view.to_screen(g.2, g.3)).expand(4.0);
+            let pts = vec![r.left_top(), r.right_top(), r.right_bottom(), r.left_bottom(), r.left_top()];
+            painter.extend(egui::Shape::dashed_line(&pts, egui::Stroke::new(1.0_f32, C::ACCENT_H()), 5.0, 4.0));
+            painter.text(r.left_top() - egui::vec2(0.0, 3.0), egui::Align2::LEFT_BOTTOM, crate::i18n::trf("{0} instances", &[selected.len().to_string()]), egui::FontId::proportional(12.0), C::ACCENT_H());
+        }
+    }
+    // rectangle de sélection en cours
+    if let Some(Drag::Marquee { x0, y0, x1, y1, .. }) = &app.view.drag {
+        let r = egui::Rect::from_two_pos(app.view.to_screen(*x0, *y0), app.view.to_screen(*x1, *y1));
+        painter.rect_filled(r, 0.0, egui::Color32::from_rgba_unmultiplied(255, 138, 61, 24));
+        painter.rect_stroke(r, 0.0, egui::Stroke::new(1.0_f32, C::ACCENT()), egui::StrokeKind::Middle);
+    }
+    // sélection simple
+    if let (Sel::Inst(id), true) = (&app.sel, selected.len() <= 1) {
         if let Some(i) = app.find_inst(id) {
             if let Some(b) = inst_box(app, i) {
                 let r = egui::Rect::from_min_max(app.view.to_screen(b.l.min(b.r), b.t), app.view.to_screen(b.l.max(b.r), b.b));
@@ -475,7 +555,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
     if let (Some(m), None) = (mouse, &app.view.drag) {
         let (wx, wy) = app.view.to_world(m);
         if let Some(id) = hit(app, wx, wy) {
-            if app.sel != Sel::Inst(id.clone()) {
+            if !selected.contains(&id) {
                 if let Some(b) = app.find_inst(&id).and_then(|i| inst_box(app, i)) {
                     let r = egui::Rect::from_min_max(app.view.to_screen(b.l.min(b.r), b.t), app.view.to_screen(b.l.max(b.r), b.b));
                     painter.rect_stroke(r, 0.0, egui::Stroke::new(1.0_f32, egui::Color32::from_rgba_unmultiplied(255, 255, 255, 90)), egui::StrokeKind::Outside);

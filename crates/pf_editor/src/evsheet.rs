@@ -18,6 +18,8 @@ pub struct EvState {
     pub collapsed: std::collections::HashSet<String>,
     /// glisser-déposer en attente : (source, cible, mode 0 = avant, 1 = après, 2 = dedans)
     pub drop: Option<(Vec<usize>, Vec<usize>, u8)>,
+    /// sélection multiple (chemins) ; vide = sélection simple
+    pub multi: Vec<Vec<usize>>,
 }
 
 /// charge utile du glisser-déposer : chemin de l'événement déplacé
@@ -47,33 +49,39 @@ fn drop_zone(app: &mut App, ui: &egui::Ui, rect: egui::Rect, path: &Vec<usize>, 
     }
 }
 
-/// applique un déplacement d'événement (glisser-déposer)
-fn apply_drop(app: &mut App, src: Vec<usize>, mut dst: Vec<usize>, mode: u8) {
-    if src.is_empty() || dst.starts_with(&src) {
+/// applique un déplacement d'événements (glisser-déposer) ; si l'événement saisi fait partie
+/// d'une sélection multiple, tout le groupe se déplace
+fn apply_drop(app: &mut App, src: Vec<usize>, dst: Vec<usize>, mode: u8) {
+    if src.is_empty() {
         return;
     }
-    app.snapshot();
-    let Some(sh) = sheet_mut(app) else { return };
-    let (sl, sp) = src.split_last().unwrap();
-    let Some(item) = events_at(sh, sp).and_then(|l| if *sl < l.len() { Some(l.remove(*sl)) } else { None }) else { return };
-    let d = sp.len();
-    if dst.len() > d && dst[..d] == *sp && dst[d] > *sl {
-        dst[d] -= 1;
+    let moving = if !app.ev.multi.is_empty() && app.ev.multi.contains(&src) { sel_paths(app) } else { vec![src] };
+    if moving.iter().any(|m| dst.starts_with(m)) {
+        return;
     }
+    let Some(dst_id) = ev_id(app, &dst) else { return };
+    app.snapshot();
+    let items = take_events(app, &moving);
+    let ids: Vec<String> = items.iter().map(|e| e.s("id").to_string()).collect();
+    let evs = cur_events(app);
+    let Some(dpath) = find_path(&evs, &dst_id) else { return };
+    let Some(sh) = sheet_mut(app) else { return };
     let (parent, k) = if mode == 2 {
-        let n = events_at(sh, &dst).map(|l| l.len()).unwrap_or(0);
-        (dst.clone(), n)
+        let n = events_at(sh, &dpath).map(|l| l.len()).unwrap_or(0);
+        (dpath.clone(), n)
     } else {
-        let (l, p) = dst.split_last().unwrap();
+        let (l, p) = dpath.split_last().unwrap();
         (p.to_vec(), *l + if mode == 1 { 1 } else { 0 })
     };
     if let Some(list) = events_at(sh, &parent) {
         let k = k.min(list.len());
-        list.insert(k, item);
-        let mut np = parent;
-        np.push(k);
-        app.ev.sel = Some(np);
+        for (n, e) in items.into_iter().enumerate() {
+            list.insert(k + n, e);
+        }
     }
+    let evs = cur_events(app);
+    let new: Vec<Vec<usize>> = ids.iter().filter_map(|id| find_path(&evs, id)).collect();
+    set_multi(app, new, None);
     app.changed();
 }
 
@@ -286,13 +294,29 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
         ui.label(crate::i18n::tr("Aucune feuille d’événements."));
         return;
     }
-    if !crate::util::typing(ui.ctx()) && app.sprite.is_none() {
-        let (c, v) = ui.ctx().input(|i| (i.modifiers.command && i.key_pressed(egui::Key::C), i.modifiers.command && i.key_pressed(egui::Key::V)));
+    ev_normalize(app);
+    if !crate::util::typing(ui.ctx()) && app.sprite.is_none() && app.ev.edit.is_none() && app.ev.pick.is_none() {
+        let (c, v, a, esc, del, dup) = ui.ctx().input(|i| {
+            let m = i.modifiers.command;
+            (m && i.key_pressed(egui::Key::C), m && i.key_pressed(egui::Key::V), m && i.key_pressed(egui::Key::A), i.key_pressed(egui::Key::Escape), i.key_pressed(egui::Key::Delete), m && i.key_pressed(egui::Key::D))
+        });
         if c && app.ev.sel.is_some() {
             copy_sel(app, ui.ctx());
         }
         if v && app.ev_clip.is_some() {
             paste(app);
+        }
+        if a {
+            select_all_events(app);
+        }
+        if esc {
+            set_multi(app, vec![], None);
+        }
+        if del {
+            delete_sel(app);
+        }
+        if dup {
+            duplicate_sel(app);
         }
     }
     // ---- barre d'outils
@@ -320,7 +344,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             if ui.add(theme::btn_accent(crate::i18n::tr("+ Événement"))).clicked() {
                 add(app, new_event(), false);
             }
-            if ui.add_enabled(sel.is_some(), theme::btn(crate::i18n::tr("+ Sous-événement"))).clicked() {
+            if ui.add_enabled(sel.is_some() && app.ev.multi.len() < 2, theme::btn(crate::i18n::tr("+ Sous-événement"))).clicked() {
                 add(app, new_event(), true);
             }
             if ui.add(theme::btn(crate::i18n::tr("+ Commentaire"))).clicked() {
@@ -341,33 +365,21 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
             }
             ui.separator();
             let has = sel.is_some();
-            if ui.add_enabled(has, theme::btn_small("↑")).clicked() {
+            let many = app.ev.multi.len() > 1;
+            if many {
+                ui.label(egui::RichText::new(crate::i18n::trf("{0} sélectionnés", &[app.ev.multi.len().to_string()])).color(C::ACCENT()).strong()).on_hover_text(crate::i18n::tr("Ctrl+clic : ajouter / retirer · Maj+clic : plage · Ctrl+A : tout · Échap : aucun"));
+            }
+            if ui.add_enabled(has && !many, theme::btn_small("↑")).clicked() {
                 move_sel(app, -1);
             }
-            if ui.add_enabled(has, theme::btn_small("↓")).clicked() {
+            if ui.add_enabled(has && !many, theme::btn_small("↓")).clicked() {
                 move_sel(app, 1);
             }
             if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Activer / désactiver"))).clicked() {
-                if let Some(p) = sel.clone() {
-                    app.snapshot();
-                    if let Some(e) = ev_at(sheet_mut(app).unwrap(), &p) {
-                        let off = pf_runtime::rt::jtruthy(e.get("off"));
-                        e["off"] = Json::Bool(!off);
-                    }
-                    app.changed();
-                }
+                toggle_off_sel(app);
             }
-            if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Dupliquer"))).clicked() {
-                if let Some(p) = sel.clone() {
-                    app.snapshot();
-                    let sh = sheet_mut(app).unwrap();
-                    if let Some(list) = events_at(sh, &p[..p.len() - 1]) {
-                        let mut c = list[p[p.len() - 1]].clone();
-                        reid(&mut c);
-                        list.insert(p[p.len() - 1] + 1, c);
-                    }
-                    app.changed();
-                }
+            if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Dupliquer"))).on_hover_text(crate::i18n::tr("Ctrl+D")).clicked() {
+                duplicate_sel(app);
             }
             if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Copier"))).on_hover_text(crate::i18n::tr("Ctrl+C")).clicked() {
                 copy_sel(app, ui.ctx());
@@ -376,23 +388,15 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui, now: f64) {
                 paste(app);
             }
             let bp_on = sel.as_ref().and_then(|p| ev_id(app, p)).map(|id| app.bps.contains(&id)).unwrap_or(false);
-            if ui.add_enabled(has, theme::btn_small(if bp_on { crate::i18n::tr("● Retirer le point d’arrêt") } else { crate::i18n::tr("● Point d’arrêt") })).on_hover_text(crate::i18n::tr("Le test se met en pause quand cet événement s’exécute")).clicked() {
+            if ui.add_enabled(has && !many, theme::btn_small(if bp_on { crate::i18n::tr("● Retirer le point d’arrêt") } else { crate::i18n::tr("● Point d’arrêt") })).on_hover_text(crate::i18n::tr("Le test se met en pause quand cet événement s’exécute")).clicked() {
                 if let Some(id) = sel.as_ref().and_then(|p| ev_id(app, p)) {
                     if !app.bps.remove(&id) {
                         app.bps.insert(id);
                     }
                 }
             }
-            if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Supprimer"))).clicked() {
-                if let Some(p) = sel.clone() {
-                    app.snapshot();
-                    let sh = sheet_mut(app).unwrap();
-                    if let Some(list) = events_at(sh, &p[..p.len() - 1]) {
-                        list.remove(p[p.len() - 1]);
-                    }
-                    app.ev.sel = None;
-                    app.changed();
-                }
+            if ui.add_enabled(has, theme::btn_small(crate::i18n::tr("Supprimer"))).on_hover_text(crate::i18n::tr("Suppr")).clicked() {
+                delete_sel(app);
             }
         });
     });
@@ -464,7 +468,7 @@ fn row_frame(sel: bool, off: bool, fill: egui::Color32) -> egui::Frame {
 }
 
 fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, depth: usize) {
-    let sel = app.ev.sel.as_ref() == Some(path);
+    let sel = is_sel(app, path);
     let off = pf_runtime::rt::jtruthy(e.get("off"));
     let indent = depth as f32 * 22.0;
     let id = e.s("id").to_string();
@@ -491,7 +495,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                         }
                     });
                     if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
-                        app.ev.sel = Some(path.clone());
+                        select_row(app, ui, path);
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
                 }
@@ -527,7 +531,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                         });
                     });
                     if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
-                        app.ev.sel = Some(path.clone());
+                        select_row(app, ui, path);
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
                     if !collapsed {
@@ -562,7 +566,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                         });
                     });
                     if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
-                        app.ev.sel = Some(path.clone());
+                        select_row(app, ui, path);
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
                 }
@@ -583,7 +587,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                         });
                     });
                     if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
-                        app.ev.sel = Some(path.clone());
+                        select_row(app, ui, path);
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
                 }
@@ -652,7 +656,7 @@ fn draw_event(app: &mut App, ui: &mut egui::Ui, e: &Json, path: &Vec<usize>, dep
                         });
                     });
                     if r.response.contains_pointer() && ui.input(|i| i.pointer.primary_clicked()) {
-                        app.ev.sel = Some(path.clone());
+                        select_row(app, ui, path);
                     }
                     drop_zone(app, ui, r.response.rect, path, nests);
                     let subs = e.arr("subs").to_vec();
@@ -1136,39 +1140,228 @@ fn ev_id(app: &App, path: &[usize]) -> Option<String> {
 }
 
 fn copy_sel(app: &mut App, ctx: &egui::Context) {
-    let p = match app.ev.sel.clone() {
-        Some(p) => p,
-        None => return,
-    };
+    let paths = sel_paths(app);
     let s = app.proj.arr("sheets").iter().find(|s| s.s("id") == app.cur_sheet).cloned();
     if let Some(mut s) = s {
-        if let Some(e) = ev_at(&mut s, &p) {
-            let e = e.clone();
-            ctx.copy_text(serde_json::to_string_pretty(&e).unwrap_or_default());
-            app.ev_clip = Some(e);
-        }
+        let evs: Vec<Json> = paths.iter().filter_map(|p| ev_at(&mut s, p).map(|e| e.clone())).collect();
+        // plusieurs événements : un tableau ; un seul : l'événement (format d'avant)
+        let clip = match evs.len() {
+            0 => return,
+            1 => evs[0].clone(),
+            _ => Json::Array(evs),
+        };
+        ctx.copy_text(serde_json::to_string_pretty(&clip).unwrap_or_default());
+        app.ev_clip = Some(clip);
     }
 }
 
 fn paste(app: &mut App) {
-    let mut e = match app.ev_clip.clone() {
-        Some(e) => e,
+    let mut evs: Vec<Json> = match app.ev_clip.clone() {
+        Some(Json::Array(a)) => a,
+        Some(e) => vec![e],
         None => return,
     };
-    reid(&mut e);
+    for e in evs.iter_mut() {
+        reid(e);
+    }
     app.snapshot();
-    let sel = app.ev.sel.clone();
+    // après le dernier événement sélectionné
+    let sel = sel_paths(app).last().cloned();
     let sh = sheet_mut(app).unwrap();
     let (parent, at) = match &sel {
         Some(p) => (p[..p.len() - 1].to_vec(), Some(p[p.len() - 1] + 1)),
         None => (vec![], None),
     };
+    let mut new = Vec::new();
     if let Some(list) = events_at(sh, &parent) {
         let k = at.unwrap_or(list.len()).min(list.len());
-        list.insert(k, e);
-        let mut np = parent;
-        np.push(k);
-        app.ev.sel = Some(np);
+        for (n, e) in evs.into_iter().enumerate() {
+            list.insert(k + n, e);
+            let mut np = parent.clone();
+            np.push(k + n);
+            new.push(np);
+        }
+    }
+    set_multi(app, new, None);
+    app.changed();
+}
+
+// ---------------------------------------------------------------- sélection multiple
+
+/// événements sélectionnés, dans l'ordre du document, sans ceux contenus dans un autre sélectionné
+pub fn sel_paths(app: &App) -> Vec<Vec<usize>> {
+    let mut v: Vec<Vec<usize>> = if !app.ev.multi.is_empty() { app.ev.multi.clone() } else { app.ev.sel.clone().into_iter().collect() };
+    v.sort();
+    v.dedup();
+    let all = v.clone();
+    v.retain(|p| !all.iter().any(|q| q != p && p.starts_with(q)));
+    v
+}
+
+fn is_sel(app: &App, path: &Vec<usize>) -> bool {
+    if app.ev.multi.is_empty() {
+        app.ev.sel.as_ref() == Some(path)
+    } else {
+        app.ev.multi.contains(path)
+    }
+}
+
+/// garde la sélection multiple cohérente (sélection principale changée, événements supprimés)
+fn ev_normalize(app: &mut App) {
+    match &app.ev.sel {
+        None => app.ev.multi.clear(),
+        Some(p) => {
+            if !app.ev.multi.contains(p) {
+                app.ev.multi.clear();
+            }
+        }
+    }
+    if !app.ev.multi.is_empty() {
+        let ok: Vec<Vec<usize>> = app.ev.multi.iter().filter(|p| ev_id(app, p).is_some()).cloned().collect();
+        app.ev.multi = ok;
+        if app.ev.multi.len() < 2 {
+            app.ev.multi.clear();
+        }
+    }
+}
+
+fn set_multi(app: &mut App, mut paths: Vec<Vec<usize>>, primary: Option<Vec<usize>>) {
+    paths.sort();
+    paths.dedup();
+    match paths.len() {
+        0 => {
+            app.ev.sel = None;
+            app.ev.multi.clear();
+        }
+        1 => {
+            app.ev.sel = Some(paths[0].clone());
+            app.ev.multi.clear();
+        }
+        _ => {
+            app.ev.sel = Some(primary.filter(|p| paths.contains(p)).unwrap_or_else(|| paths.last().unwrap().clone()));
+            app.ev.multi = paths;
+        }
+    }
+}
+
+/// clic sur un événement : seul, Ctrl+clic (ajouter / retirer), Maj+clic (plage)
+fn select_row(app: &mut App, ui: &egui::Ui, path: &Vec<usize>) {
+    let (ctrl, shift) = ui.input(|i| (i.modifiers.command, i.modifiers.shift));
+    if ctrl {
+        let mut cur: Vec<Vec<usize>> = if !app.ev.multi.is_empty() { app.ev.multi.clone() } else { app.ev.sel.clone().into_iter().collect() };
+        if let Some(k) = cur.iter().position(|p| p == path) {
+            cur.remove(k);
+            set_multi(app, cur, None);
+        } else {
+            cur.push(path.clone());
+            set_multi(app, cur, Some(path.clone()));
+        }
+    } else if shift {
+        match app.ev.sel.clone() {
+            // plage entre l'événement déjà choisi et celui-ci (dans la même liste)
+            Some(a) if a.len() == path.len() && a[..a.len() - 1] == path[..path.len() - 1] => {
+                let (i0, i1) = (a[a.len() - 1].min(path[path.len() - 1]), a[a.len() - 1].max(path[path.len() - 1]));
+                let parent = path[..path.len() - 1].to_vec();
+                let range: Vec<Vec<usize>> = (i0..=i1).map(|k| {
+                    let mut p = parent.clone();
+                    p.push(k);
+                    p
+                }).collect();
+                set_multi(app, range, Some(a));
+            }
+            _ => set_multi(app, vec![path.clone()], None),
+        }
+    } else {
+        app.ev.sel = Some(path.clone());
+        app.ev.multi.clear();
+    }
+}
+
+fn find_path(list: &[Json], id: &str) -> Option<Vec<usize>> {
+    for (k, e) in list.iter().enumerate() {
+        if e.s("id") == id {
+            return Some(vec![k]);
+        }
+        if let Some(mut p) = find_path(e.arr("subs"), id) {
+            p.insert(0, k);
+            return Some(p);
+        }
+    }
+    None
+}
+
+fn cur_events(app: &App) -> Vec<Json> {
+    app.proj.arr("sheets").iter().find(|s| s.s("id") == app.cur_sheet).map(|s| s.arr("events").to_vec()).unwrap_or_default()
+}
+
+/// retire les événements donnés (chemins triés) et les renvoie dans l'ordre du document
+fn take_events(app: &mut App, paths: &[Vec<usize>]) -> Vec<Json> {
+    let mut out = Vec::new();
+    let Some(sh) = sheet_mut(app) else { return out };
+    for p in paths.iter().rev() {
+        let (l, parent) = p.split_last().unwrap();
+        if let Some(list) = events_at(sh, parent) {
+            if *l < list.len() {
+                out.push(list.remove(*l));
+            }
+        }
+    }
+    out.reverse();
+    out
+}
+
+fn delete_sel(app: &mut App) {
+    let paths = sel_paths(app);
+    if paths.is_empty() {
+        return;
+    }
+    app.snapshot();
+    take_events(app, &paths);
+    app.ev.sel = None;
+    app.ev.multi.clear();
+    app.changed();
+}
+
+fn toggle_off_sel(app: &mut App) {
+    let paths = sel_paths(app);
+    if paths.is_empty() {
+        return;
+    }
+    app.snapshot();
+    let sh = sheet_mut(app).unwrap();
+    let target = ev_at(sh, &paths[0]).map(|e| !pf_runtime::rt::jtruthy(e.get("off"))).unwrap_or(true);
+    for p in &paths {
+        if let Some(e) = ev_at(sh, p) {
+            e["off"] = Json::Bool(target);
+        }
     }
     app.changed();
+}
+
+fn duplicate_sel(app: &mut App) {
+    let paths = sel_paths(app);
+    if paths.is_empty() {
+        return;
+    }
+    app.snapshot();
+    let sh = sheet_mut(app).unwrap();
+    let mut ids = Vec::new();
+    for p in paths.iter().rev() {
+        let (l, parent) = p.split_last().unwrap();
+        if let Some(list) = events_at(sh, parent) {
+            let mut c = list[*l].clone();
+            reid(&mut c);
+            ids.push(c.s("id").to_string());
+            list.insert(*l + 1, c);
+        }
+    }
+    let evs = cur_events(app);
+    let new: Vec<Vec<usize>> = ids.iter().filter_map(|id| find_path(&evs, id)).collect();
+    set_multi(app, new, None);
+    app.changed();
+}
+
+fn select_all_events(app: &mut App) {
+    let n = cur_events(app).len();
+    set_multi(app, (0..n).map(|k| vec![k]).collect(), None);
 }

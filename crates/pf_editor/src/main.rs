@@ -13,6 +13,7 @@ mod files;
 mod history;
 mod i18n;
 mod more;
+mod multisel;
 mod particles;
 mod tools;
 mod tpl;
@@ -115,6 +116,10 @@ pub struct App {
     pub autosave: files::AutoSave,
     /// heure de l'interface (secondes depuis le lancement), mise à jour à chaque image
     pub clock: f64,
+    /// sélection multiple d'instances (vide = sélection simple)
+    pub multi: Vec<String>,
+    /// presse-papiers d'instances (Ctrl+C / Ctrl+V dans le niveau)
+    pub inst_clip: Vec<Json>,
     pub sprite: Option<sprite::SpriteEd>,
     pub part_ed: Option<particles::PartEd>,
     pub snd_lib: Option<sounds::SndLib>,
@@ -173,6 +178,8 @@ impl App {
             confirm: None,
             autosave: files::AutoSave::new(),
             clock: 0.0,
+            multi: Vec::new(),
+            inst_clip: Vec::new(),
             sprite: None,
             preview: None,
             cine_ed: None,
@@ -550,11 +557,32 @@ impl eframe::App for App {
             if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::F)) {
                 self.find = Some(find::FindState::default());
             }
-            if del {
+            // Suppr / Ctrl+D : instances dans le niveau (la feuille d'événements a les siens)
+            if del && self.tab == Tab::Layout {
                 self.delete_selection();
             }
-            if dup {
+            if dup && self.tab == Tab::Layout {
                 self.duplicate_selection();
+            }
+            // niveau : tout sélectionner, désélectionner, copier / coller des instances
+            if self.tab == Tab::Layout {
+                let (a, esc, c, v) = ctx.input(|i| (i.modifiers.command && i.key_pressed(egui::Key::A), i.key_pressed(egui::Key::Escape), i.modifiers.command && i.key_pressed(egui::Key::C), i.modifiers.command && i.key_pressed(egui::Key::V)));
+                if a {
+                    multisel::select_all(self);
+                }
+                if esc && matches!(self.sel, Sel::Inst(_)) {
+                    multisel::select(self, vec![]);
+                }
+                if c {
+                    let n = multisel::copy(self);
+                    if n > 0 {
+                        self.toast(crate::i18n::trf("{0} instance(s) copiée(s)", &[n.to_string()]), false, now);
+                    }
+                }
+                if v {
+                    let at = ctx.input(|i| i.pointer.latest_pos()).filter(|p| self.view.rect.contains(*p)).map(|p| self.view.to_world(p));
+                    multisel::paste(self, at);
+                }
             }
         }
 
@@ -811,36 +839,13 @@ impl App {
     }
 
     pub fn delete_selection(&mut self) {
-        match self.sel.clone() {
-            Sel::Inst(id) => {
-                self.snapshot();
-                if let Some(l) = self.layout_mut() {
-                    if let Some(a) = l.get_mut("instances").and_then(|v| v.as_array_mut()) {
-                        a.retain(|i| i.s("id") != id);
-                    }
-                }
-                self.sel = Sel::None;
-                self.changed();
-            }
-            _ => {}
+        if let Sel::Inst(_) = self.sel {
+            multisel::delete_all(self);
         }
     }
     pub fn duplicate_selection(&mut self) {
-        if let Sel::Inst(id) = self.sel.clone() {
-            if let Some(mut j) = self.find_inst(&id).cloned() {
-                self.snapshot();
-                let nid = pf_core::uid("i");
-                j["id"] = Json::String(nid.clone());
-                j["x"] = pf_core::json!(j.f("x", 0.0) + 16.0);
-                j["y"] = pf_core::json!(j.f("y", 0.0) + 16.0);
-                if let Some(l) = self.layout_mut() {
-                    if let Some(a) = l.get_mut("instances").and_then(|v| v.as_array_mut()) {
-                        a.push(j);
-                    }
-                }
-                self.sel = Sel::Inst(nid);
-                self.changed();
-            }
+        if let Sel::Inst(_) = self.sel {
+            multisel::duplicate_all(self);
         }
     }
 
@@ -968,6 +973,7 @@ fn help_window(app: &mut App, ctx: &egui::Context) {
             crate::i18n::tr("Molette : zoom · clic du milieu, clic droit ou Espace + glisser : se déplacer."),
             crate::i18n::tr("Flèches : déplacer la sélection de 1 px (Maj : d’une case de grille) · Alt : sans aimantation."),
             crate::i18n::tr("Ctrl+D : dupliquer · Suppr : supprimer · double-clic : propriétés de l’objet."),
+            crate::i18n::tr("Sélection multiple : glisser dans le vide (rectangle), Maj+clic pour ajouter / retirer, Ctrl+A tout ; le panneau de droite aligne et répartit. Ctrl+C / Ctrl+V copient des instances, même vers un autre niveau."),
             crate::i18n::tr("Carte de tuiles sélectionnée : « Peindre les tuiles » (clic droit = effacer)."),
             crate::i18n::tr("Instance avec le comportement Trajectoire : « Trajectoire » pour placer les points."),
         ]);
@@ -977,6 +983,7 @@ fn help_window(app: &mut App, ctx: &egui::Context) {
             crate::i18n::tr("Les expressions acceptent + - * / ^ %, & (texte), = <> < > <= >=, et / ou / non, a ? b : c,"),
             crate::i18n::tr("les variables (Score), les propriétés (Joueur.X, Joueur.Speed) et des fonctions (random, round, distance…)."),
             crate::i18n::tr("Ctrl+C / Ctrl+V copient et collent des événements, même entre feuilles. « ● Point d’arrêt » met le test en pause."),
+            crate::i18n::tr("Plusieurs événements : Ctrl+clic pour ajouter / retirer, Maj+clic pour une plage, Ctrl+A tout ; puis glisser, Suppr, Ctrl+D, Ctrl+C…"),
         ]);
         sec(ui, crate::i18n::tr("Les éditeurs"), &[
             crate::i18n::tr("Sprite : double-clic sur l’objet. S sélection, B crayon, E gomme, G remplir, I pipette, L ligne, R rectangle,"),
